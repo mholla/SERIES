@@ -92,6 +92,7 @@
   <div class="panel" id="reactionsPanel">
     <details id="reactionsDetails">
       <summary id="reactionsSummary"></summary>
+      <svg id="reactionsFBD" viewBox="0 0 1100 190" preserveAspectRatio="xMidYMid meet" style="width:100%;display:block;margin-top:10px;"></svg>
       <div id="reactionsContent"></div>
     </details>
   </div>
@@ -301,7 +302,7 @@ function drawPinSupport(parent, x, cy, hh){
   }
 }
 function drawRollerSupport(parent, x, cy, hh){
-  const topY = cy+hh, r = 9, ccy = topY+r, baseY = ccy+r+7;
+  const topY = cy+hh, r = 9, ccy = topY+r, baseY = ccy+r;
   el('circle',{cx:x,cy:ccy,r,fill:'#DDE1D9',stroke:'var(--ink)','stroke-width':1.3},parent);
   el('line',{x1:x-19,y1:baseY,x2:x+19,y2:baseY,stroke:'var(--ink)','stroke-width':1.3},parent);
   for(let i=-3;i<=3;i++){
@@ -309,13 +310,13 @@ function drawRollerSupport(parent, x, cy, hh){
     el('line',{x1:hx-5,y1:baseY+10,x2:hx+5,y2:baseY,stroke:'var(--steel)','stroke-width':1},parent);
   }
 }
-/* Reaction arrows are drawn BELOW the beam, at the support, always pointing
-   up into the beam — a negative computed reaction just means the true
-   direction is actually down; the label shows the signed value rather than
-   flipping the arrow. */
-function drawSupportOnPiece(parent, s, offset, cy){
+/* A free-body diagram shows the reaction FORCE, not the physical support —
+   so no pin/roller icon here, just the arrow and label. Always drawn
+   pointing up into the beam; a negative computed reaction just means the
+   true direction is actually down, shown via a signed label rather than
+   flipping the arrow. Used in the reactions FBD and both cut-view pieces. */
+function drawReactionOnFBD(parent, s, offset, cy){
   const x = xPix(s.x)+offset;
-  if(s.id==='B') drawPinSupport(parent, x, cy, BEAM_HH); else drawRollerSupport(parent, x, cy, BEAM_HH);
   const len = 24, yBeam = cy+BEAM_HH, yFar = yBeam+len;
   vArrow(parent, x, yFar, yBeam, 'var(--force)', 3, 9);
   subLabel(parent, x+16, (yBeam+yFar)/2+4, 'R', s.id, ` = ${s.R.toFixed(0)} N`, {'text-anchor':'start'});
@@ -468,14 +469,14 @@ function renderCut(xm, R){
 
   /* left piece */
   drawBeamPiece(g, posM.A, xm, -GAP, CY_CUT);
-  R.supLeft.forEach(s=>drawSupportOnPiece(g, s, -GAP, CY_CUT));
+  R.supLeft.forEach(s=>drawReactionOnFBD(g, s, -GAP, CY_CUT));
   R.loadsLeft.forEach(n=>loadArrowDown(g, xPix(n.x)-GAP, n.id, n.mag, CY_CUT, BEAM_HH, 34));
   drawCutFace(g, cutXpix-GAP, CY_CUT, R.V_left, R.M_left, true);
   text(xPix(posM.A)-GAP+2, 26, 'LEFT FREE BODY', {'font-size':13,'font-weight':700,fill:'var(--ink)'},g);
 
   /* right piece */
   drawBeamPiece(g, xm, posM.E, GAP, CY_CUT);
-  R.supRight.forEach(s=>drawSupportOnPiece(g, s, GAP, CY_CUT));
+  R.supRight.forEach(s=>drawReactionOnFBD(g, s, GAP, CY_CUT));
   R.loadsRight.forEach(n=>loadArrowDown(g, xPix(n.x)+GAP, n.id, n.mag, CY_CUT, BEAM_HH, 34));
   if(R.includeMomentInRight) drawAppliedMoment(g, xPix(posM.E)+GAP+30, CY_CUT-6, 16);
   drawCutFace(g, cutXpix+GAP, CY_CUT, R.V_right, R.M_right, false);
@@ -524,7 +525,28 @@ function prose(container, str){
   container.appendChild(p);
 }
 
+/* The free body used to solve for the reactions: the whole beam with its
+   loads, plus R_B and R_D drawn as unknown reaction forces — no support
+   icons, since that's the point of a free body (the physical supports are
+   replaced by the forces they exert). */
+const svgReactFBD = document.getElementById('reactionsFBD');
+function renderReactionsFBD(){
+  svgReactFBD.innerHTML = '';
+  const g = el('g',{},svgReactFBD);
+  const cy = 85;
+  drawBeamPiece(g, posM.A, posM.E, 0, cy);
+  ['A','B','C','D','E'].forEach(id=>{
+    text(xPix(posM[id]), cy+BEAM_HH+70, id, {'text-anchor':'middle','font-size':13,'font-weight':600}, g);
+  });
+  getPointLoads().forEach(n=>{
+    loadArrowDown(g, xPix(n.x), n.id, n.mag, cy, BEAM_HH, 36);
+  });
+  drawAppliedMoment(g, xPix(posM.E)+32, cy-6, 16);
+  getSupports().forEach(s=>drawReactionOnFBD(g, s, 0, cy));
+}
+
 function renderReactionsPanel(){
+  renderReactionsFBD();
   const summary = document.getElementById('reactionsSummary');
   summary.innerHTML = `<b>Support reactions:</b> R<sub>B</sub> = ${R_B.toFixed(0)} N, R<sub>D</sub> = ${R_D.toFixed(0)} N. <span class="expand-hint">Expand to see calculations</span>`;
   const c = document.getElementById('reactionsContent');
