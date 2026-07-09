@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Beam Section Cut Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<style>
+  :root{
+    --paper:#EFF2ED; --ink:#1B2B3A; --steel:#78838F; --steel-light:#C7CEC6;
+    --force:#AE3527; --teal:#1F7A6C; --teal-soft:#D6E7E2;
+    --panel-bg:#FFFFFF; --panel-border:#D7DBD1;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans',sans-serif;-webkit-font-smoothing:antialiased;}
+  .app{max-width:1180px;margin:0 auto;padding:28px 24px 60px;}
+  header{border-bottom:2px solid var(--ink);padding-bottom:16px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;}
+  .title-block .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--steel);}
+  .title-block h1{margin:2px 0 4px;font-size:26px;font-weight:600;letter-spacing:-0.01em;}
+  .title-block p{margin:0;font-size:14px;color:var(--steel);max-width:600px;}
+  .legend{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--steel);display:flex;gap:16px;flex-wrap:wrap;}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .swatch{width:12px;height:12px;border-radius:2px;display:inline-block;}
+  .stage{position:relative;margin-top:18px;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:6px;padding:6px 6px 0;}
+  svg#diagram, svg#shearDiagram, svg#momentDiagram, svg#bottomSchematic{width:100%;display:block;cursor:default;}
+  .hint-bar{display:flex;justify-content:space-between;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--steel);padding:8px 14px 12px;border-top:1px dashed var(--panel-border);}
+  .hint-bar #liveReading{color:var(--teal);font-weight:600;}
+  .panel{background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:6px;padding:16px 18px 18px;}
+  .panel h3{margin:0 0 12px;font-size:14px;letter-spacing:0.03em;text-transform:uppercase;}
+  .panel .prose{font-size:13px;color:var(--steel);margin:10px 0 4px;}
+  .katexline{margin:2px 0 10px;overflow-x:auto;}
+  .katexline .katex-display{margin:0.25em 0;}
+  #reactionsPanel{margin-top:18px;}
+  #reactionsPanel summary{
+    cursor:pointer; list-style:none; font-size:14px; color:var(--ink);
+  }
+  #reactionsPanel summary::-webkit-details-marker{display:none;}
+  #reactionsPanel summary::before{
+    content:'▸'; display:inline-block; margin-right:8px; color:var(--steel);
+    transition:transform 0.15s ease;
+  }
+  #reactionsPanel details[open] summary::before{transform:rotate(90deg);}
+  #reactionsPanel summary b{font-weight:700;}
+  #reactionsPanel .expand-hint{color:var(--teal);font-weight:600;font-size:12.5px;margin-left:6px;}
+  #reactionsPanel #reactionsContent{margin-top:14px;padding-top:4px;border-top:1px dashed var(--panel-border);}
+  #panels{display:none;margin-top:22px;grid-template-columns:1fr 1fr;gap:18px;}
+  #panels.show{display:grid;}
+  @media (max-width:760px){#panels{grid-template-columns:1fr;}}
+  #agreement{display:none;margin-top:16px;}
+  #agreement.show{display:block;}
+  .agree-box{border:1.5px solid var(--teal);background:var(--teal-soft);border-radius:6px;padding:14px 18px;display:flex;flex-direction:column;gap:6px;}
+  .agree-box .line{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .agree-box .check{font-family:'IBM Plex Mono',monospace;font-size:20px;color:var(--teal);font-weight:700;}
+  .section-title{margin:40px 0 4px;font-size:18px;font-weight:600;border-top:2px solid var(--ink);padding-top:16px;}
+  .section-sub{font-size:13.5px;color:var(--steel);margin:0 0 14px;max-width:640px;}
+  .plot-toolbar{display:flex;justify-content:flex-end;margin-top:8px;}
+  button.reset-btn{
+    font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:12.5px;
+    border:1.5px solid var(--ink);background:transparent;color:var(--ink);
+    padding:6px 14px;border-radius:4px;cursor:pointer;
+  }
+  button.reset-btn:hover{background:var(--ink);color:var(--paper);}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="title-block">
+      <div class="eyebrow">SERIES · Step 1 — Section (Beams)</div>
+      <h1>Beam Section Cut Explorer</h1>
+      <p>How many section cuts do you have to make to determine the internal shear and moment at every point in this beam?</p>
+    </div>
+    <div class="legend">
+      <span><span class="swatch" style="background:var(--force)"></span>load / internal action</span>
+      <span><span class="swatch" style="background:var(--teal)"></span>section cut</span>
+    </div>
+  </header>
+
+  <div class="stage">
+    <svg id="diagram" viewBox="0 0 1100 280" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="hint-bar">
+      <span id="liveReading">Click anywhere to determine the internal shear and moment.</span>
+      <span id="xReadout"></span>
+    </div>
+  </div>
+
+  <div class="panel" id="reactionsPanel">
+    <details id="reactionsDetails">
+      <summary id="reactionsSummary"></summary>
+      <svg id="reactionsFBD" viewBox="0 0 1100 190" preserveAspectRatio="xMidYMid meet" style="width:100%;display:block;margin-top:10px;"></svg>
+      <div id="reactionsContent"></div>
+    </details>
+  </div>
+
+  <svg id="cutview" viewBox="-40 0 1180 320" preserveAspectRatio="xMidYMid meet" style="width:100%;display:none;margin-top:14px;"></svg>
+
+  <div id="panels">
+    <div class="panel" id="panelLeft">
+      <h3>Left free body</h3>
+      <div id="panelLeftContent"></div>
+    </div>
+    <div class="panel" id="panelRight">
+      <h3>Right free body</h3>
+      <div id="panelRightContent"></div>
+    </div>
+  </div>
+  <div id="agreement">
+    <div class="agree-box">
+      <div class="line"><span class="check">✓</span><span id="agreeMathV"></span></div>
+      <div class="line"><span class="check">✓</span><span id="agreeMathM"></span></div>
+    </div>
+  </div>
+
+  <div class="section-title">Shear vs. position</div>
+  <p class="section-sub">Every cut you make above drops a point here. Shear is piecewise constant — it only jumps where a concentrated load or reaction acts.</p>
+  <div class="stage">
+    <svg id="shearDiagram" viewBox="0 0 1100 190" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+
+  <div class="section-title">Moment vs. position</div>
+  <p class="section-sub">Moment is piecewise linear between loads — its slope changes wherever shear jumps. Watch it jump only where the applied couple at E acts.</p>
+  <div class="stage">
+    <svg id="momentDiagram" viewBox="0 0 1100 190" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+
+  <div class="stage">
+    <svg id="bottomSchematic" viewBox="0 0 1100 190" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+  <div class="plot-toolbar">
+    <button class="reset-btn" id="resetPlotBtn">Reset</button>
+  </div>
+
+</div>
+
+<script>
+/* ---------- Data model ----------
+   Geometry is fixed and uniform: every span is exactly a = 3 m (A-B, B-C,
+   C-D, D-E), so there's a single distance value used consistently
+   everywhere instead of mixed multiples. Loads P_A, P_C, P_E and the
+   applied couple M_E at E are each independently randomized to a round
+   multiple of 50 (N or N·m) — no fixed ratio between them. Loads are
+   always downward and the applied couple is always drawn/solved with a
+   fixed sense (dirE). Support reactions are solved once from global
+   equilibrium; every section cut afterward reuses those numbers. */
+let P_A, P_C, P_E, M_E, SCALE, posM, R_B, R_D;
+const a_val = 3; /* m — fixed, uniform span */
+const X0 = 150;
+const dirE = 1; /* +1 = counterclockwise-positive applied couple at E */
+const BEAM_HH = 20;
+const CY_TOP = 118;
+const CY_CUT = 140;
+const NS = "http://www.w3.org/2000/svg";
+
+function xPix(m){ return X0 + m*SCALE; }
+function rand50(lo, hi){ const steps = (hi-lo)/50; return lo + 50*Math.floor(Math.random()*(steps+1)); }
+
+function getPointLoads(){
+  return [
+    {id:'A', mag:P_A, x:posM.A},
+    {id:'C', mag:P_C, x:posM.C},
+    {id:'E', mag:P_E, x:posM.E}
+  ];
+}
+function getSupports(){
+  return [ {id:'B', x:posM.B, R:R_B}, {id:'D', x:posM.D, R:R_D} ];
+}
+function getSegments(){
+  return [
+    {n:1, x0:posM.A, x1:posM.B, label:'①'},
+    {n:2, x0:posM.B, x1:posM.C, label:'②'},
+    {n:3, x0:posM.C, x1:posM.D, label:'③'},
+    {n:4, x0:posM.D, x1:posM.E, label:'④'}
+  ];
+}
+function segmentAt(xm){ return getSegments().find(s=>xm>s.x0+1e-6 && xm<s.x1-1e-6) || null; }
+/* Symbolic position of a node in terms of the uniform span a (A=0, B=a,
+   C=2a, D=3a, E=4a) — used for the symbolic setup line of each equation,
+   kept separate from the numeric substitution line that follows it. */
+function symPos(id){
+  const mult = {A:0, B:1, C:2, D:3, E:4}[id];
+  return mult===0 ? '0' : (mult===1 ? 'a' : `${mult}a`);
+}
+function nearestSpecialDist(xm){
+  return Math.min(...[posM.A,posM.B,posM.C,posM.D,posM.E].map(p=>Math.abs(p-xm)));
+}
+
+function randomizeLoads(){
+  P_A = rand50(100, 1000);
+  P_C = rand50(100, 1000);
+  P_E = rand50(100, 1000);
+  M_E = rand50(200, 2000);
+  posM = { A:0, B:a_val, C:2*a_val, D:3*a_val, E:4*a_val };
+  SCALE = 720/(4*a_val);
+  computeReactions();
+}
+function computeReactions(){
+  const armA = posM.A-posM.B, armC = posM.C-posM.B, armE = posM.E-posM.B, armD = posM.D-posM.B;
+  const sumMB_known = (-P_A)*armA + (-P_C)*armC + (-P_E)*armE + dirE*M_E;
+  R_D = -sumMB_known/armD;
+  R_B = (P_A+P_C+P_E) - R_D;
+}
+
+/* Method of sections: V and M computed from BOTH the left and right piece,
+   independently, so the panels can show either derivation and confirm they agree.
+   Sign convention (as specified): V positive points UP on the left piece's
+   cut face / DOWN on the right piece's (the reverse of the usual textbook
+   convention). M positive is sagging (curls "cup up" on both faces, drawn
+   CCW on the left face / CW on the right) — unaffected by the V flip. */
+function computeCut(xm){
+  const loads = getPointLoads(), supports = getSupports();
+  const loadsLeft = loads.filter(n=>n.x<xm), loadsRight = loads.filter(n=>n.x>xm);
+  const supLeft = supports.filter(s=>s.x<xm), supRight = supports.filter(s=>s.x>xm);
+  const includeMomentInRight = posM.E > xm;
+
+  const V_left = loadsLeft.reduce((s,n)=>s+n.mag,0) - supLeft.reduce((s,r)=>s+r.R,0);
+  const M_left = supLeft.reduce((s,r)=>s+r.R*(xm-r.x),0) - loadsLeft.reduce((s,n)=>s+n.mag*(xm-n.x),0);
+  const V_right = supRight.reduce((s,r)=>s+r.R,0) - loadsRight.reduce((s,n)=>s+n.mag,0);
+  const M_right = supRight.reduce((s,r)=>s+r.R*(r.x-xm),0) - loadsRight.reduce((s,n)=>s+n.mag*(n.x-xm),0) + (includeMomentInRight? dirE*M_E : 0);
+
+  const seg = segmentAt(xm);
+  return { seg, loadsLeft, loadsRight, supLeft, supRight, includeMomentInRight, V_left, M_left, V_right, M_right, V:V_left, M:M_left };
+}
+
+/* ---------- Geometry / SVG helpers ---------- */
+function el(tag, attrs, parent){
+  const e = document.createElementNS(NS, tag);
+  for(const k in attrs) if(attrs[k]!==null && attrs[k]!==undefined) e.setAttribute(k, attrs[k]);
+  if(parent) parent.appendChild(e);
+  return e;
+}
+function text(x,y,str,attrs,parent){
+  const t = el('text', Object.assign({x,y,'font-family':"IBM Plex Mono, monospace",'font-size':13,fill:'var(--ink)'}, attrs), parent);
+  t.textContent = str;
+  return t;
+}
+function subLabel(parent, x, y, base, sub, suffix, attrs, color){
+  const t = el('text', Object.assign({x,y,'font-family':"IBM Plex Mono, monospace",'font-size':13,fill:color||'var(--force)','font-weight':700}, attrs), parent);
+  const t1 = el('tspan',{},t); t1.textContent = base;
+  const t2 = el('tspan',{dy:3,'font-size':9},t); t2.textContent = sub;
+  const t3 = el('tspan',{dy:-3},t); t3.textContent = suffix;
+  return t;
+}
+function hArrowHead(x,y,dir,size,color,parent){
+  const pts = `${x},${y} ${x-dir*size},${y-size*0.62} ${x-dir*size},${y+size*0.62}`;
+  el('polygon', {points:pts, fill:color}, parent);
+}
+function vArrowHead(x,y,dir,size,color,parent){
+  const pts = `${x},${y} ${x-size*0.62},${y-dir*size} ${x+size*0.62},${y-dir*size}`;
+  el('polygon', {points:pts, fill:color}, parent);
+}
+function vArrow(parent, x, y1, y2, color, width, headSize=8){
+  const dir = y2>y1 ? 1 : -1;
+  el('line',{x1:x,y1,x2:x,y2,stroke:color,'stroke-width':width,'stroke-linecap':'round'},parent);
+  vArrowHead(x,y2,dir,headSize,color,parent);
+}
+function dimArrow(parent, x1, x2, y, color='var(--steel)'){
+  el('line',{x1,y1:y,x2,y2:y,stroke:color,'stroke-width':1.2},parent);
+  hArrowHead(x1,y,-1,6,color,parent);
+  hArrowHead(x2,y,1,6,color,parent);
+}
+/* True in-plane bending-moment arrow: a real half-circle arc (the rotation
+   axis for a 2D bending moment is perpendicular to the page, so — unlike
+   torque — no projection trick is needed). ccw=true sweeps counterclockwise.
+   openRight=true leaves the open (flat) side facing +x; false faces -x. */
+function momentArc(parent, cx, cy0, r, ccw, openRight, color, sw=3){
+  const spanStart = openRight ? 90 : 270, spanEnd = spanStart+180, steps = 30;
+  let d = '';
+  for(let i=0;i<=steps;i++){
+    const t = i/steps;
+    const ang = ccw ? spanEnd - t*(spanEnd-spanStart) : spanStart + t*(spanEnd-spanStart);
+    const rad = ang*Math.PI/180;
+    const x = cx+r*Math.cos(rad), y = cy0+r*Math.sin(rad);
+    d += (i===0?'M ':'L ') + x.toFixed(2)+' '+y.toFixed(2)+' ';
+  }
+  el('path', {d, fill:'none', stroke:color, 'stroke-width':sw, 'stroke-linecap':'round'}, parent);
+  const tipAng = ccw ? spanStart : spanEnd;
+  const rad = tipAng*Math.PI/180;
+  const tx = cx+r*Math.cos(rad), ty = cy0+r*Math.sin(rad);
+  const sweepSign = ccw ? -1 : 1;
+  const dx = -r*Math.sin(rad)*sweepSign, dy = r*Math.cos(rad)*sweepSign;
+  const tl = Math.hypot(dx,dy) || 1, tdx = dx/tl, tdy = dy/tl;
+  const size = 8, nx = -tdy, ny = tdx;
+  const backX = tx-tdx*size, backY = ty-tdy*size;
+  el('polygon', {points:`${tx.toFixed(2)},${ty.toFixed(2)} ${(backX+nx*size*0.55).toFixed(2)},${(backY+ny*size*0.55).toFixed(2)} ${(backX-nx*size*0.55).toFixed(2)},${(backY-ny*size*0.55).toFixed(2)}`, fill:color}, parent);
+}
+function drawBeamPiece(parent, xFromM, xToM, offsetPix, cy){
+  const xa = xPix(xFromM)+offsetPix, xb = xPix(xToM)+offsetPix;
+  el('rect',{x:xa, y:cy-BEAM_HH, width:Math.max(xb-xa,0.001), height:BEAM_HH*2, fill:'#F6F7F4', stroke:'var(--ink)', 'stroke-width':1.6}, parent);
+}
+function drawPinSupport(parent, x, cy, hh){
+  const apexY = cy+hh, halfW = 15, baseY = apexY+24;
+  el('polygon',{points:`${x},${apexY} ${x-halfW},${baseY} ${x+halfW},${baseY}`, fill:'#DDE1D9', stroke:'var(--ink)','stroke-width':1.3}, parent);
+  el('line',{x1:x-halfW-8,y1:baseY,x2:x+halfW+8,y2:baseY,stroke:'var(--ink)','stroke-width':1.3},parent);
+  for(let i=-3;i<=3;i++){
+    const hx = x+i*7;
+    el('line',{x1:hx-5,y1:baseY+10,x2:hx+5,y2:baseY,stroke:'var(--steel)','stroke-width':1},parent);
+  }
+}
+function drawRollerSupport(parent, x, cy, hh){
+  const topY = cy+hh, r = 9, ccy = topY+r, baseY = ccy+r;
+  el('circle',{cx:x,cy:ccy,r,fill:'#DDE1D9',stroke:'var(--ink)','stroke-width':1.3},parent);
+  el('line',{x1:x-19,y1:baseY,x2:x+19,y2:baseY,stroke:'var(--ink)','stroke-width':1.3},parent);
+  for(let i=-3;i<=3;i++){
+    const hx = x+i*7;
+    el('line',{x1:hx-5,y1:baseY+10,x2:hx+5,y2:baseY,stroke:'var(--steel)','stroke-width':1},parent);
+  }
+}
+/* A free-body diagram shows the reaction FORCE, not the physical support —
+   so no pin/roller icon here, just the arrow and label. Always drawn
+   pointing up into the beam; a negative computed reaction just means the
+   true direction is actually down, shown via a signed label rather than
+   flipping the arrow. Used in the reactions FBD and both cut-view pieces. */
+function drawReactionOnFBD(parent, s, offset, cy){
+  const x = xPix(s.x)+offset;
+  const len = 24, yBeam = cy+BEAM_HH, yFar = yBeam+len;
+  vArrow(parent, x, yFar, yBeam, 'var(--force)', 3, 9);
+  subLabel(parent, x+16, (yBeam+yFar)/2+4, 'R', s.id, ` = ${s.R.toFixed(0)} N`, {'text-anchor':'start'});
+}
+function loadArrowDown(parent, xNode, id, mag, cy, hh, len){
+  const y1 = cy-hh-len, y2 = cy-hh-2;
+  vArrow(parent, xNode, y1, y2, 'var(--force)', 3.2, 9);
+  subLabel(parent, xNode, y1-8, 'P', id, ` = ${mag} N`, {'text-anchor':'middle'});
+}
+function drawAppliedMoment(parent, xNode, cy, r){
+  momentArc(parent, xNode, cy, r, dirE>0, false, 'var(--force)', 3);
+  subLabel(parent, xNode, cy-r-11, 'M', 'E', ` = ${M_E.toFixed(0)} N·m`, {'text-anchor':'middle'});
+}
+function upArrowHead(x,y,size,color,parent){
+  const pts = `${x},${y} ${x-size*0.62},${y+size} ${x+size*0.62},${y+size}`;
+  el('polygon', {points:pts, fill:color}, parent);
+}
+function drawAxisIndicator(parent, x0, y0, size=30){
+  const col = 'var(--steel)';
+  el('line',{x1:x0,y1:y0,x2:x0+size,y2:y0,stroke:col,'stroke-width':1.6},parent);
+  hArrowHead(x0+size,y0,1,7,col,parent);
+  text(x0+size+9,y0+4,'x',{'font-size':13,'font-weight':700,fill:col},parent);
+  el('line',{x1:x0,y1:y0,x2:x0,y2:y0-size,stroke:col,'stroke-width':1.6},parent);
+  upArrowHead(x0,y0-size,7,col,parent);
+  text(x0-3,y0-size-9,'y',{'font-size':13,'font-weight':700,fill:col,'text-anchor':'middle'},parent);
+  el('circle',{cx:x0,cy:y0,r:2,fill:col},parent);
+}
+function drawDimensionLine(parent, y){
+  const pts = ['A','B','C','D','E'].map(id=>posM[id]);
+  for(let i=0;i<pts.length-1;i++){
+    const x1 = xPix(pts[i]), x2 = xPix(pts[i+1]);
+    el('line',{x1,y1:y-6,x2:x1,y2:y+6,stroke:'var(--steel)','stroke-width':1},parent);
+    el('line',{x1:x2,y1:y-6,x2:x2,y2:y+6,stroke:'var(--steel)','stroke-width':1},parent);
+    dimArrow(parent, x1, x2, y);
+    text((x1+x2)/2, y+16, `${(pts[i+1]-pts[i]).toFixed(0)} m`, {'text-anchor':'middle','font-size':11,fill:'var(--steel)'}, parent);
+  }
+}
+
+/* Shared schematic: beam, supports, loads, applied moment, node labels, and
+   the dimension line. Used by the top diagram and the single bottom strip. */
+function drawBeamSchematic(parent, cy, opts={}){
+  drawBeamPiece(parent, posM.A, posM.E, 0, cy);
+  if(!opts.skipZoneLabels){
+    getSegments().forEach(seg=>{
+      text((xPix(seg.x0)+xPix(seg.x1))/2, cy+BEAM_HH+18, seg.label, {'text-anchor':'middle','font-size':15,fill:'var(--steel)'}, parent);
+    });
+  }
+  ['A','B','C','D','E'].forEach(id=>{
+    const x = xPix(posM[id]);
+    text(x, cy+BEAM_HH+46, id, {'text-anchor':'middle','font-size':14,'font-weight':600},parent);
+  });
+  drawPinSupport(parent, xPix(posM.B), cy, BEAM_HH);
+  drawRollerSupport(parent, xPix(posM.D), cy, BEAM_HH);
+  if(!opts.skipDims) drawDimensionLine(parent, cy+BEAM_HH+65);
+  getPointLoads().forEach(n=>{
+    loadArrowDown(parent, xPix(n.x), n.id, n.mag, cy, BEAM_HH, opts.loadLen||40);
+  });
+  drawAppliedMoment(parent, xPix(posM.E)+34, cy-6, opts.momentR||18);
+}
+
+/* ---------- Top diagram ---------- */
+const svgTop = document.getElementById('diagram');
+let hoverLayer, cutMarkerLayer, baseLayer;
+
+function buildTopDiagram(){
+  svgTop.innerHTML = '';
+  baseLayer = el('g',{},svgTop);
+  drawBeamSchematic(baseLayer, CY_TOP, {loadLen:42, momentR:20});
+  drawAxisIndicator(baseLayer, 40, CY_TOP+BEAM_HH+65, 26);
+  hoverLayer = el('g',{id:'hoverLayer'},svgTop);
+  cutMarkerLayer = el('g',{id:'cutMarkerLayer'},svgTop);
+}
+
+function drawWavyBreak(parent, x, hh, color){
+  const y0 = CY_TOP-hh-10, y1 = CY_TOP+hh+10;
+  const steps = 22, amp = 4.5, cycles = 3.2;
+  let d = `M ${x + amp*Math.sin(0)} ${y0}`;
+  for(let i=1;i<=steps;i++){
+    const t = i/steps;
+    const yy = y0 + t*(y1-y0);
+    const xx = x + amp*Math.sin(t*Math.PI*2*cycles);
+    d += ` L ${xx.toFixed(2)} ${yy.toFixed(2)}`;
+  }
+  el('path',{d, fill:'none', stroke:color, 'stroke-width':2.4, 'stroke-linecap':'round'}, parent);
+}
+
+/* ---------- Hover / click interaction ---------- */
+const liveReading = document.getElementById('liveReading');
+const xReadout = document.getElementById('xReadout');
+let hasCut = false;
+let lastCutXm = null;
+
+function svgPoint(evt){
+  const rect = svgTop.getBoundingClientRect();
+  const vb = svgTop.viewBox.baseVal;
+  const cx = ('touches' in evt && evt.touches[0]) ? evt.touches[0].clientX : evt.clientX;
+  return vb.x + (cx-rect.left)/rect.width*vb.width;
+}
+svgTop.addEventListener('mousemove', evt=>{
+  const px = svgPoint(evt);
+  const xm = Math.min(posM.E, Math.max(posM.A, (px-X0)/SCALE));
+  drawHoverGuide(xm);
+});
+svgTop.addEventListener('mouseleave', ()=>{ hoverLayer.innerHTML=''; xReadout.textContent=''; });
+svgTop.addEventListener('click', evt=>{
+  const px = svgPoint(evt);
+  const xm = Math.min(posM.E, Math.max(posM.A, (px-X0)/SCALE));
+  attemptCut(xm);
+});
+function drawHoverGuide(xm){
+  hoverLayer.innerHTML='';
+  const seg = segmentAt(xm);
+  if(seg){
+    const x = xPix(xm);
+    el('line',{x1:x,y1:CY_TOP-BEAM_HH-14,x2:x,y2:CY_TOP+BEAM_HH+14,stroke:'var(--steel-light)','stroke-width':1.4},hoverLayer);
+  }
+  xReadout.textContent = `x = ${xm.toFixed(2)} m`;
+}
+function attemptCut(xm){
+  const tol = 0.08;
+  if(nearestSpecialDist(xm) < tol){
+    liveReading.textContent = 'Too close to a load or support — try somewhere else.';
+    return;
+  }
+  const seg = segmentAt(xm);
+  const R = computeCut(xm);
+  cutMarkerLayer.innerHTML='';
+  drawWavyBreak(cutMarkerLayer, xPix(xm), BEAM_HH, 'var(--teal)');
+  hasCut = true;
+  lastCutXm = xm;
+  liveReading.textContent = 'Cut made — now try a different segment (on the other side of a load or support).';
+  renderCut(xm, R);
+  plotV.push({x:xm, V:R.V});
+  plotM.push({x:xm, M:R.M});
+  renderShearDiagram();
+  renderMomentDiagram();
+}
+
+/* ---------- Cut view ---------- */
+const svgCut = document.getElementById('cutview');
+
+function renderCut(xm, R){
+  const GAP = 118;
+  const cutXpix = xPix(xm);
+
+  svgCut.innerHTML='';
+  svgCut.style.display='block';
+  const g = el('g',{},svgCut);
+  drawAxisIndicator(g, -10, 275, 24);
+
+  /* left piece */
+  drawBeamPiece(g, posM.A, xm, -GAP, CY_CUT);
+  R.supLeft.forEach(s=>drawReactionOnFBD(g, s, -GAP, CY_CUT));
+  R.loadsLeft.forEach(n=>loadArrowDown(g, xPix(n.x)-GAP, n.id, n.mag, CY_CUT, BEAM_HH, 34));
+  drawCutFace(g, cutXpix-GAP, CY_CUT, R.V_left, R.M_left, true);
+  text(xPix(posM.A)-GAP+2, 26, 'LEFT FREE BODY', {'font-size':13,'font-weight':700,fill:'var(--ink)'},g);
+
+  /* right piece */
+  drawBeamPiece(g, xm, posM.E, GAP, CY_CUT);
+  R.supRight.forEach(s=>drawReactionOnFBD(g, s, GAP, CY_CUT));
+  R.loadsRight.forEach(n=>loadArrowDown(g, xPix(n.x)+GAP, n.id, n.mag, CY_CUT, BEAM_HH, 34));
+  if(R.includeMomentInRight) drawAppliedMoment(g, xPix(posM.E)+GAP+30, CY_CUT-6, 16);
+  drawCutFace(g, cutXpix+GAP, CY_CUT, R.V_right, R.M_right, false);
+  text(xPix(posM.E)+GAP-2, 26, 'RIGHT FREE BODY', {'font-size':13,'font-weight':700,fill:'var(--ink)','text-anchor':'end'},g);
+
+  fillPanels(R, xm);
+}
+
+/* Internal shear + moment at the cut, always drawn in the assumed-positive
+   sense: V is a short line on the outside of the cut (in the gap), parallel
+   to the cut edge, pointing UP on the left piece's face / DOWN on the right
+   piece's (the sign convention specified, not the usual textbook one). M is
+   a half-circle in line with the beam, open side facing away from the cut,
+   curling CCW on the left face / CW on the right face ("cup up" on both —
+   the sagging-positive convention). A negative value just means the true
+   direction is opposite. */
+function drawCutFace(parent, xf, cy, V, M, isLeft){
+  el('line',{x1:xf,y1:cy-BEAM_HH,x2:xf,y2:cy+BEAM_HH,stroke:'var(--ink)','stroke-width':2.2},parent);
+
+  const gapSide = isLeft ? 1 : -1;
+  const vx = xf + gapSide*13;
+  const vy1 = cy - BEAM_HH*0.82, vy2 = cy + BEAM_HH*0.82;
+  const y1 = isLeft ? vy2 : vy1, y2 = isLeft ? vy1 : vy2;
+  vArrow(parent, vx, y1, y2, 'var(--force)', 3, 8);
+  subLabel(parent, vx, vy1-9, 'V(x)', '', ` = ${V.toFixed(0)} N`, {'text-anchor':'middle'});
+
+  const mx = xf + gapSide*48;
+  momentArc(parent, mx, cy, 15, isLeft, !isLeft, 'var(--force)', 2.6);
+  subLabel(parent, mx, cy+62, 'M(x)', '', ` = ${M.toFixed(0)} N·m`, {'text-anchor':'middle'});
+}
+
+/* ---------- KaTeX helpers ---------- */
+function kx(container, tex, display=true){
+  const div = document.createElement('div');
+  div.className = 'katexline';
+  container.appendChild(div);
+  katex.render(tex, div, {throwOnError:false, displayMode:display});
+}
+function kxAligned(container, lines){
+  kx(container, `\\begin{aligned}${lines.join(' \\\\ ')}\\end{aligned}`);
+}
+function prose(container, str){
+  const p = document.createElement('div');
+  p.className = 'prose';
+  p.textContent = str;
+  container.appendChild(p);
+}
+
+/* The free body used to solve for the reactions: the whole beam with its
+   loads, plus R_B and R_D drawn as unknown reaction forces — no support
+   icons, since that's the point of a free body (the physical supports are
+   replaced by the forces they exert). */
+const svgReactFBD = document.getElementById('reactionsFBD');
+function renderReactionsFBD(){
+  svgReactFBD.innerHTML = '';
+  const g = el('g',{},svgReactFBD);
+  const cy = 85;
+  drawBeamPiece(g, posM.A, posM.E, 0, cy);
+  ['A','B','C','D','E'].forEach(id=>{
+    text(xPix(posM[id]), cy+BEAM_HH+70, id, {'text-anchor':'middle','font-size':13,'font-weight':600}, g);
+  });
+  getPointLoads().forEach(n=>{
+    loadArrowDown(g, xPix(n.x), n.id, n.mag, cy, BEAM_HH, 36);
+  });
+  drawAppliedMoment(g, xPix(posM.E)+32, cy-6, 16);
+  getSupports().forEach(s=>drawReactionOnFBD(g, s, 0, cy));
+}
+
+function renderReactionsPanel(){
+  renderReactionsFBD();
+  const summary = document.getElementById('reactionsSummary');
+  summary.innerHTML = `<b>Support reactions:</b> R<sub>B</sub> = ${R_B.toFixed(0)} N, R<sub>D</sub> = ${R_D.toFixed(0)} N. <span class="expand-hint">Expand to see calculations</span>`;
+  const c = document.getElementById('reactionsContent');
+  c.innerHTML = '';
+  prose(c, 'Global equilibrium of the whole beam. Sum moments about B first — it removes R_B from the equation:');
+  const armC = posM.C-posM.B, armE = posM.E-posM.B, armA = posM.B-posM.A, armD = posM.D-posM.B;
+  const numD = -P_A*armA + P_C*armC + P_E*armE - M_E;
+  kxAligned(c, [
+    `\\Sigma M_B = 0 &= P_A(a) - P_C(a) - P_E(3a) + M_E + R_D(2a)`,
+    `R_D &= \\dfrac{-P_A(a) + P_C(a) + P_E(3a) - M_E}{2a} = \\dfrac{${numD.toFixed(0)}}{${armD.toFixed(0)}} = ${R_D.toFixed(0)}\\ \\text{N}`
+  ]);
+  prose(c, 'Then sum vertical forces:');
+  kxAligned(c, [
+    `\\Sigma F_y = 0 &= R_B + R_D - P_A - P_C - P_E`,
+    `R_B &= P_A + P_C + P_E - R_D = ${(P_A+P_C+P_E).toFixed(0)} - ${R_D.toFixed(0)} = ${R_B.toFixed(0)}\\ \\text{N}`
+  ]);
+}
+
+function fillPanels(R, xm){
+  document.getElementById('panels').classList.add('show');
+  document.getElementById('agreement').classList.add('show');
+
+  const L = document.getElementById('panelLeftContent'); L.innerHTML='';
+  prose(L, 'Sum forces on the left piece:');
+  const vTermsL = R.supLeft.map(s=>` + ${s.R.toFixed(0)}`).join('') + R.loadsLeft.map(n=>` - ${n.mag}`).join('');
+  kxAligned(L, [
+    `\\Sigma F_y = 0 &= ${R.supLeft.map(s=>`R_${s.id}`).join(' + ')||''}${R.loadsLeft.map(n=>` - P_{${n.id}}`).join('')} + V(x)`,
+    `V(x) &= -\\left(0${vTermsL}\\right) = ${R.V_left.toFixed(0)}\\ \\text{N}`
+  ]);
+  prose(L, 'Sum moments about the cut:');
+  const mTermsSym = R.supLeft.map(s=>`R_${s.id}(x-${symPos(s.id)})`).join(' + ') + R.loadsLeft.map(n=>` - P_{${n.id}}(x-${symPos(n.id)})`).join('');
+  const mTermsNum = R.supLeft.map(s=>` + ${s.R.toFixed(0)}(${xm.toFixed(1)}-${s.x.toFixed(0)})`).join('') + R.loadsLeft.map(n=>` - ${n.mag}(${xm.toFixed(1)}-${n.x.toFixed(0)})`).join('');
+  kxAligned(L, [
+    `\\Sigma M_{cut} = 0 &= ${mTermsSym||'0'} - M(x)`,
+    `M(x) &= 0${mTermsNum} = ${R.M_left.toFixed(0)}\\ \\text{N}\\cdot\\text{m}`
+  ]);
+
+  const Rp = document.getElementById('panelRightContent'); Rp.innerHTML='';
+  prose(Rp, 'Sum forces on the right piece:');
+  kxAligned(Rp, [
+    `\\Sigma F_y = 0 &= -V(x)${R.supRight.map(s=>` + R_${s.id}`).join('')}${R.loadsRight.map(n=>` - P_{${n.id}}`).join('')}`,
+    `V(x) &= 0${R.supRight.map(s=>` + ${s.R.toFixed(0)}`).join('')}${R.loadsRight.map(n=>` - ${n.mag}`).join('')} = ${R.V_right.toFixed(0)}\\ \\text{N}`
+  ]);
+  prose(Rp, 'Sum moments about the cut:');
+  const mTermsSymR = R.supRight.map(s=>`R_${s.id}(${symPos(s.id)}-x)`).join(' + ') + R.loadsRight.map(n=>` - P_{${n.id}}(${symPos(n.id)}-x)`).join('') + (R.includeMomentInRight?' + M_E':'');
+  const mTermsNumR = R.supRight.map(s=>` + ${s.R.toFixed(0)}(${s.x.toFixed(0)}-${xm.toFixed(1)})`).join('') + R.loadsRight.map(n=>` - ${n.mag}(${n.x.toFixed(0)}-${xm.toFixed(1)})`).join('') + (R.includeMomentInRight?` + ${M_E.toFixed(0)}`:'');
+  kxAligned(Rp, [
+    `\\Sigma M_{cut} = 0 &= -M(x) + ${mTermsSymR||'0'}`,
+    `M(x) &= 0${mTermsNumR} = ${R.M_right.toFixed(0)}\\ \\text{N}\\cdot\\text{m}`
+  ]);
+
+  const vSpan = document.getElementById('agreeMathV');
+  katex.render(`\\text{Both free bodies agree:}\\quad V(x) = ${R.V.toFixed(0)}\\ \\text{N}`, vSpan, {throwOnError:false, displayMode:false});
+  const mSpan = document.getElementById('agreeMathM');
+  katex.render(`\\text{Both free bodies agree:}\\quad M(x) = ${R.M.toFixed(0)}\\ \\text{N}\\cdot\\text{m}`, mSpan, {throwOnError:false, displayMode:false});
+}
+
+/* ---------- Shear / moment vs. position plots (data only — the beam
+   schematic is shown once, shared, below both plots) ---------- */
+const plotV = [], plotM = [];
+let yRangeV, yRangeM;
+const svgV = document.getElementById('shearDiagram');
+const svgM = document.getElementById('momentDiagram');
+const svgSchematic = document.getElementById('bottomSchematic');
+const Y_ZERO = 95, Y_HALFSPAN = 70;
+
+function computeRanges(){
+  const xs = [posM.B+0.3, posM.B+ (posM.C-posM.B)/2, posM.C+ (posM.D-posM.C)/2, posM.D+0.3, posM.A+0.3, posM.E-0.3];
+  const vs = xs.map(x=>Math.abs(computeCut(x).V));
+  const ms = xs.map(x=>Math.abs(computeCut(x).M));
+  yRangeV = Math.max(...vs, 1) * 1.35;
+  yRangeM = Math.max(...ms, 1) * 1.35;
+}
+
+function renderPlotAxes(g, yRange, yLabel){
+  el('line',{x1:xPix(posM.A)-14,y1:Y_ZERO,x2:xPix(posM.E)+14,y2:Y_ZERO,stroke:'var(--steel)','stroke-width':1.3},g);
+  text(xPix(posM.A)-20,Y_ZERO+4,'0',{'text-anchor':'end','font-size':11,fill:'var(--steel)'},g);
+  text(xPix(posM.A)-20,Y_ZERO-Y_HALFSPAN+4,`+${yRange.toFixed(0)}`,{'text-anchor':'end','font-size':10,fill:'var(--steel-light)'},g);
+  text(xPix(posM.A)-20,Y_ZERO+Y_HALFSPAN+4,`−${yRange.toFixed(0)}`,{'text-anchor':'end','font-size':10,fill:'var(--steel-light)'},g);
+  const rot = `rotate(-90 ${xPix(posM.A)-46} ${Y_ZERO})`;
+  text(xPix(posM.A)-46, Y_ZERO, yLabel, {'text-anchor':'middle','font-size':11,fill:'var(--steel)',transform:rot},g);
+  ['A','B','C','D','E'].forEach(id=>{
+    const x = xPix(posM[id]);
+    el('line',{x1:x,y1:14,x2:x,y2:Y_ZERO+Y_HALFSPAN+14,stroke:'var(--steel-light)','stroke-width':1,'stroke-dasharray':'3,4'},g);
+  });
+}
+
+function renderShearDiagram(){
+  svgV.innerHTML='';
+  const g = el('g',{},svgV);
+  renderPlotAxes(g, yRangeV, 'V (N)');
+  const yPix = V => Y_ZERO - (V/yRangeV)*Y_HALFSPAN;
+  plotV.forEach(p=>{
+    el('circle',{cx:xPix(p.x),cy:yPix(p.V),r:5.5,fill:'var(--force)',stroke:'#fff','stroke-width':1.5},g);
+  });
+}
+function renderMomentDiagram(){
+  svgM.innerHTML='';
+  const g = el('g',{},svgM);
+  renderPlotAxes(g, yRangeM, 'M (N·m)');
+  const yPix = M => Y_ZERO - (M/yRangeM)*Y_HALFSPAN;
+  plotM.forEach(p=>{
+    el('circle',{cx:xPix(p.x),cy:yPix(p.M),r:5.5,fill:'var(--force)',stroke:'#fff','stroke-width':1.5},g);
+  });
+}
+function renderBottomSchematic(){
+  svgSchematic.innerHTML='';
+  const g = el('g',{},svgSchematic);
+  const cy = 80;
+  drawBeamSchematic(g, cy, {skipZoneLabels:true, loadLen:30, momentR:14});
+  text((xPix(posM.A)+xPix(posM.E))/2, cy+BEAM_HH+65+34, 'x (m)', {'text-anchor':'middle','font-size':11,fill:'var(--steel)'},g);
+}
+
+document.getElementById('resetPlotBtn').addEventListener('click', ()=>{
+  plotV.length = 0; plotM.length = 0;
+  cutMarkerLayer.innerHTML='';
+  svgCut.style.display='none';
+  document.getElementById('panels').classList.remove('show');
+  document.getElementById('agreement').classList.remove('show');
+  hasCut = false;
+  lastCutXm = null;
+  liveReading.textContent = 'Click anywhere to determine the internal shear and moment.';
+  xReadout.textContent = '';
+  randomizeLoads();
+  renderReactionsPanel();
+  buildTopDiagram();
+  computeRanges();
+  renderShearDiagram();
+  renderMomentDiagram();
+  renderBottomSchematic();
+});
+
+/* ---------- Initialize ---------- */
+randomizeLoads();
+renderReactionsPanel();
+buildTopDiagram();
+computeRanges();
+renderShearDiagram();
+renderMomentDiagram();
+renderBottomSchematic();
+</script>
+</body>
+</html>
