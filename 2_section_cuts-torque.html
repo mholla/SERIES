@@ -197,36 +197,26 @@ function doubleHeadedArrow(x1,y,x2,color,width,parent,headSize=9){
   arrowHead(x2-dir*headSize*0.85,y,dir,headSize,color,parent);
   arrowHead(x2,y,dir,headSize,color,parent);
 }
-/* A shallow curving arrow hugging the shaft surface — a shallow dome rather than a
-   full loop, arrowhead diving back down onto the surface at one end. dir>0 sweeps
-   left-to-right (arrowhead lands on the right, vector points toward +x by the
-   right-hand rule); dir<0 sweeps right-to-left (arrowhead on the left, vector
-   toward -x). This is the same convention as the double-headed vector: dir>0 in
-   both styles always means "vector toward +x." */
-function curvedTorqueArrow(parent, cx, cy0, rx, ry, dir, color, sw=3, dashed=false){
-  const spanStart = 165, spanEnd = 165+210, steps = 40;
-  let d = '';
-  for(let i=0;i<=steps;i++){
-    const t = i/steps;
-    const ang = dir>0 ? spanStart + t*(spanEnd-spanStart) : spanEnd - t*(spanEnd-spanStart);
-    const r = ang*Math.PI/180;
-    const x = cx+rx*Math.cos(r), y = cy0+ry*Math.sin(r);
-    d += (i===0?'M ':'L ') + x.toFixed(2)+' '+y.toFixed(2)+' ';
-  }
+/* A near-vertical curving arrow: a slightly bowed stroke (the midpoint dragged a
+   little to the right) with a single arrowhead at one end, pointing straight up
+   or straight down. dir>0 points down; dir<0 points up. Same dir sign as the
+   double-headed vector style, so toggling never changes the physical meaning. */
+function arrowHeadVec(tipX, tipY, dx, dy, size, color, parent){
+  const len = Math.hypot(dx,dy) || 1;
+  const ux = dx/len, uy = dy/len, nx = -uy, ny = ux;
+  const backX = tipX-ux*size, backY = tipY-uy*size;
+  el('polygon', {points:`${tipX.toFixed(2)},${tipY.toFixed(2)} ${(backX+nx*size*0.55).toFixed(2)},${(backY+ny*size*0.55).toFixed(2)} ${(backX-nx*size*0.55).toFixed(2)},${(backY-ny*size*0.55).toFixed(2)}`, fill:color}, parent);
+}
+function curvedTorqueArrow(parent, x, yTop, yBot, dir, color, sw=3, dashed=false){
+  const bow = 9;
+  const midY = (yTop+yBot)/2;
+  const startY = dir>0 ? yTop : yBot;
+  const endY = dir>0 ? yBot : yTop;
+  const d = `M ${x} ${startY} Q ${(x+bow).toFixed(2)} ${midY.toFixed(2)} ${x} ${endY}`;
   const attrs = {d, fill:'none', stroke:color, 'stroke-width':sw, 'stroke-linecap':'round'};
   if(dashed) attrs['stroke-dasharray'] = '5,4';
   el('path', attrs, parent);
-
-  const tipAng = dir>0 ? spanEnd : spanStart;
-  const tr = tipAng*Math.PI/180;
-  const tx = cx+rx*Math.cos(tr), ty = cy0+ry*Math.sin(tr);
-  const sweepSign = dir>0 ? 1 : -1;
-  const dx = -rx*Math.sin(tr)*sweepSign, dy = ry*Math.cos(tr)*sweepSign;
-  const tl = Math.hypot(dx,dy) || 1;
-  const tdx = dx/tl, tdy = dy/tl;
-  const size = 9, nx = -tdy, ny = tdx;
-  const backX = tx-tdx*size, backY = ty-tdy*size;
-  el('polygon', {points:`${tx.toFixed(2)},${ty.toFixed(2)} ${(backX+nx*size*0.55).toFixed(2)},${(backY+ny*size*0.55).toFixed(2)} ${(backX-nx*size*0.55).toFixed(2)},${(backY-ny*size*0.55).toFixed(2)}`, fill:color}, parent);
+  arrowHeadVec(x, endY, -bow, endY-midY, 9, color, parent);
 }
 function drawSegSlab(parent, seg, xa, xb, cy){
   const hh = halfHeight(seg);
@@ -256,11 +246,9 @@ function torqueLoadGlyph(parent, xNode, dir, magnitude, subChar, cy, hh, len){
     const labelX = xNode + dir*(len+12);
     subLabel(parent, labelX, cy-hh-10, 'T', subChar, ` = ${magnitude} N·m`, {'text-anchor': dir>0?'start':'end'});
   } else {
-    const rx = hh*0.6+13, ry = hh*0.2+9;
-    const baseline = cy - hh - 3;
-    const cyArc = baseline - ry*0.2588;
-    curvedTorqueArrow(parent, xNode, cyArc, rx, ry, dir, 'var(--force)', 3);
-    subLabel(parent, xNode, baseline-ry*1.2588-10, 'T', subChar, ` = ${magnitude} N·m`, {'text-anchor':'middle'});
+    const yBot = cy - hh - 4, yTop = yBot - 36;
+    curvedTorqueArrow(parent, xNode, yTop, yBot, dir, 'var(--force)', 3);
+    subLabel(parent, xNode, yTop-10, 'T', subChar, ` = ${magnitude} N·m`, {'text-anchor':'middle'});
   }
 }
 
@@ -416,10 +404,8 @@ function drawTorqueFace(parent, xf, seg, cy, T, sideDir, arrowLen){
     doubleHeadedArrow(xf, cy, x2, 'var(--force)', 3, parent, 9);
     subLabel(parent, labelX, cy+hh+24, 'T', String(seg.n), ` = ${T.toFixed(1)} N·m`, {'text-anchor':anchor});
   } else {
-    const rx = hh*0.5+9, ry = hh*0.18+7;
-    const baseline = cy - hh - 3;
-    const cyArc = baseline - ry*0.2588;
-    curvedTorqueArrow(parent, xf, cyArc, rx, ry, arrowDir, 'var(--force)', 3);
+    const yBot = cy - hh - 4, yTop = yBot - 30;
+    curvedTorqueArrow(parent, xf, yTop, yBot, arrowDir, 'var(--force)', 3);
     subLabel(parent, labelX, cy+hh+24, 'T', String(seg.n), ` = ${T.toFixed(1)} N·m`, {'text-anchor':anchor});
   }
 }
@@ -438,11 +424,9 @@ function drawTorqueReaction(parent, x, cy){
     arrowHead(x2,cy,dirTA,8,'var(--force)',parent);
     subLabel(parent, x+dirTA*len/2, cy+40, 'T', 'A', ` = ${T_A_mag.toFixed(1)} N·m`, {'text-anchor':'middle'});
   } else {
-    const rx = 20, ry = 10;
-    const baseline = cy - 23;
-    const cyArc = baseline - ry*0.2588;
-    curvedTorqueArrow(parent, x, cyArc, rx, ry, dirTA, 'var(--force)', 2.4, true);
-    subLabel(parent, x, baseline-ry*1.2588-10, 'T', 'A', ` = ${T_A_mag.toFixed(1)} N·m`, {'text-anchor':'middle'});
+    const yBot = cy - 24, yTop = yBot - 26;
+    curvedTorqueArrow(parent, x, yTop, yBot, dirTA, 'var(--force)', 2.4, true);
+    subLabel(parent, x, yTop-10, 'T', 'A', ` = ${T_A_mag.toFixed(1)} N·m`, {'text-anchor':'middle'});
   }
 }
 
