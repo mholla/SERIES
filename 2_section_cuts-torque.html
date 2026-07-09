@@ -459,13 +459,13 @@ function fillPanels(R, xin){
   kxAligned(L, [
     `\\Sigma M_x = 0 &= ${raTerm}${loadNodes.map(tTermSym).join('')}`,
     `R_A &= ${loadNodes.map(n=>((-dirTA*n.dir)>0?' + ':' - ')+`T_{${n.id}}`).join('')}`,
-    `R_A &= ${loadNodes.map(n=>((-dirTA*n.dir)>0?' + ':' - ')+n.T.toFixed(1)).join('')} = ${T_A_mag.toFixed(1)}\\ \\text{N·m}`
+    `R_A &= ${loadNodes.map(n=>((-dirTA*n.dir)>0?' + ':' - ')+n.T.toFixed(1)).join('')} = ${T_A_mag.toFixed(1)}\\ \\text{N}\\cdot\\text{m}`
   ]);
   prose(L, 'Now the left piece (A → cut), using that same R_A:');
   kxAligned(L, [
     `\\Sigma M_x = 0 &= ${raTerm}${R.leftNodes.map(tTermSym).join('')} + T_{${k}}`,
     `T_{${k}} &= ${coeffTA>0?'R_A':'-R_A'}${R.leftNodes.map(n=>((-n.dir)>0?' + ':' - ')+`T_{${n.id}}`).join('')}`,
-    `T_{${k}} &= ${coeffTA>0?T_A_mag.toFixed(1):'-'+T_A_mag.toFixed(1)}${R.leftNodes.map(n=>((-n.dir)>0?' + ':' - ')+n.T.toFixed(1)).join('')} = ${R.T_left.toFixed(2)}\\ \\text{N·m}`
+    `T_{${k}} &= ${coeffTA>0?T_A_mag.toFixed(1):'-'+T_A_mag.toFixed(1)}${R.leftNodes.map(n=>((-n.dir)>0?' + ':' - ')+n.T.toFixed(1)).join('')} = ${R.T_left.toFixed(2)}\\ \\text{N}\\cdot\\text{m}`
   ]);
 
   const Rp = document.getElementById('panelRightContent'); Rp.innerHTML='';
@@ -473,14 +473,14 @@ function fillPanels(R, xin){
   kxAligned(Rp, [
     `\\Sigma M_x = 0 &= -T_{${k}}${R.rightNodes.map(tTermSym).join('')}`,
     `T_{${k}} &= ${R.rightNodes.map(n=>(n.dir>0?' + ':' - ')+`T_{${n.id}}`).join('') || '0'}`,
-    `T_{${k}} &= ${R.rightNodes.map(n=>(n.dir>0?' + ':' - ')+n.T.toFixed(1)).join('') || '0'} = ${R.T_right.toFixed(2)}\\ \\text{N·m}`
+    `T_{${k}} &= ${R.rightNodes.map(n=>(n.dir>0?' + ':' - ')+n.T.toFixed(1)).join('') || '0'} = ${R.T_right.toFixed(2)}\\ \\text{N}\\cdot\\text{m}`
   ]);
 
   document.getElementById('agreeMath').innerHTML='';
   const span = document.createElement('span');
   document.getElementById('agreeMath').appendChild(span);
-  const noteTex = R.T<0 ? `\\ \\ (\\text{negative} \\Rightarrow \\text{vector actually points the other way})` : '';
-  katex.render(`\\text{Both free bodies agree:}\\quad T_{${k}} = ${R.T.toFixed(2)}\\ \\text{N·m}${noteTex}`, span, {throwOnError:false, displayMode:false});
+  const noteTex = R.T<0 ? `\\ \\ (\\text{note the negative sign})` : '';
+  katex.render(`\\text{Both free bodies agree:}\\quad T_{${k}} = ${R.T.toFixed(2)}\\ \\text{N}\\cdot\\text{m}${noteTex}`, span, {throwOnError:false, displayMode:false});
 }
 
 /* ---------- Torque-vs-position plot ---------- */
