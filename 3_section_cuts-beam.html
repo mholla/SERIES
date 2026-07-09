@@ -517,14 +517,12 @@ function renderReactionsPanel(){
   const armC = posM.C-posM.B, armE = posM.E-posM.B, armA = posM.B-posM.A, armD = posM.D-posM.B;
   const numD = -P_A*armA + P_C*armC + P_E*armE - M_E;
   kxAligned(c, [
-    `\\Sigma M_B &= 0`,
-    `0 &= P_A(a) - P_C(a) - P_E(3a) + M_E + R_D(2a)`,
-    `R_D &= \\dfrac{-P_A(a) + P_C(a) + P_E(3a) - M_E}{2a} = \\dfrac{-P_A(${armA.toFixed(0)}) + P_C(${armC.toFixed(0)}) + P_E(${armE.toFixed(0)}) - M_E}{${armD.toFixed(0)}} = \\dfrac{${numD.toFixed(0)}}{${armD.toFixed(0)}} = ${R_D.toFixed(0)}\\ \\text{N}`
+    `\\Sigma M_B = 0 &= P_A(a) - P_C(a) - P_E(3a) + M_E + R_D(2a)`,
+    `R_D &= \\dfrac{-P_A(a) + P_C(a) + P_E(3a) - M_E}{2a} = \\dfrac{${numD.toFixed(0)}}{${armD.toFixed(0)}} = ${R_D.toFixed(0)}\\ \\text{N}`
   ]);
   prose(c, 'Then sum vertical forces:');
   kxAligned(c, [
-    `\\Sigma F_y &= 0`,
-    `0 &= R_B + R_D - P_A - P_C - P_E`,
+    `\\Sigma F_y = 0 &= R_B + R_D - P_A - P_C - P_E`,
     `R_B &= P_A + P_C + P_E - R_D = ${(P_A+P_C+P_E).toFixed(0)} - ${R_D.toFixed(0)} = ${R_B.toFixed(0)}\\ \\text{N}`
   ]);
 }
@@ -538,32 +536,28 @@ function fillPanels(R, xm){
   prose(L, 'Sum forces on the left piece:');
   const vTermsL = R.supLeft.map(s=>` + ${s.R.toFixed(0)}`).join('') + R.loadsLeft.map(n=>` - ${n.mag}`).join('');
   kxAligned(L, [
-    `\\Sigma F_y &= 0`,
-    `0 &= ${R.supLeft.map(s=>`R_${s.id}`).join(' + ')||''}${R.loadsLeft.map(n=>` - P_{${n.id}}`).join('')} + V_{${seg}}`,
+    `\\Sigma F_y = 0 &= ${R.supLeft.map(s=>`R_${s.id}`).join(' + ')||''}${R.loadsLeft.map(n=>` - P_{${n.id}}`).join('')} + V_{${seg}}`,
     `V_{${seg}} &= -\\left(0${vTermsL}\\right) = ${R.V_left.toFixed(0)}\\ \\text{N}`
   ]);
   prose(L, 'Sum moments about the cut:');
   const mTermsSym = R.supLeft.map(s=>`R_${s.id}(x-${symPos(s.id)})`).join(' + ') + R.loadsLeft.map(n=>` - P_{${n.id}}(x-${symPos(n.id)})`).join('');
   const mTermsNum = R.supLeft.map(s=>` + ${s.R.toFixed(0)}(${xm.toFixed(1)}-${s.x.toFixed(0)})`).join('') + R.loadsLeft.map(n=>` - ${n.mag}(${xm.toFixed(1)}-${n.x.toFixed(0)})`).join('');
   kxAligned(L, [
-    `\\Sigma M_{cut} &= 0`,
-    `0 &= ${mTermsSym||'0'} - M_{${seg}}`,
+    `\\Sigma M_{cut} = 0 &= ${mTermsSym||'0'} - M_{${seg}}`,
     `M_{${seg}} &= 0${mTermsNum} = ${R.M_left.toFixed(0)}\\ \\text{N}\\cdot\\text{m}`
   ]);
 
   const Rp = document.getElementById('panelRightContent'); Rp.innerHTML='';
   prose(Rp, 'Sum forces on the right piece:');
   kxAligned(Rp, [
-    `\\Sigma F_y &= 0`,
-    `0 &= -V_{${seg}}${R.supRight.map(s=>` + R_${s.id}`).join('')}${R.loadsRight.map(n=>` - P_{${n.id}}`).join('')}`,
+    `\\Sigma F_y = 0 &= -V_{${seg}}${R.supRight.map(s=>` + R_${s.id}`).join('')}${R.loadsRight.map(n=>` - P_{${n.id}}`).join('')}`,
     `V_{${seg}} &= 0${R.supRight.map(s=>` + ${s.R.toFixed(0)}`).join('')}${R.loadsRight.map(n=>` - ${n.mag}`).join('')} = ${R.V_right.toFixed(0)}\\ \\text{N}`
   ]);
   prose(Rp, 'Sum moments about the cut:');
   const mTermsSymR = R.supRight.map(s=>`R_${s.id}(${symPos(s.id)}-x)`).join(' + ') + R.loadsRight.map(n=>` - P_{${n.id}}(${symPos(n.id)}-x)`).join('') + (R.includeMomentInRight?' + M_E':'');
   const mTermsNumR = R.supRight.map(s=>` + ${s.R.toFixed(0)}(${s.x.toFixed(0)}-${xm.toFixed(1)})`).join('') + R.loadsRight.map(n=>` - ${n.mag}(${n.x.toFixed(0)}-${xm.toFixed(1)})`).join('') + (R.includeMomentInRight?` + ${M_E.toFixed(0)}`:'');
   kxAligned(Rp, [
-    `\\Sigma M_{cut} &= 0`,
-    `0 &= -M_{${seg}} + ${mTermsSymR||'0'}`,
+    `\\Sigma M_{cut} = 0 &= -M_{${seg}} + ${mTermsSymR||'0'}`,
     `M_{${seg}} &= 0${mTermsNumR} = ${R.M_right.toFixed(0)}\\ \\text{N}\\cdot\\text{m}`
   ]);
 
