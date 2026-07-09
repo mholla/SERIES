@@ -124,29 +124,31 @@
 
 <script>
 /* ---------- Data model ----------
-   Geometry is fixed: a = 1 m, so the span is 3-2-2-3 m (matching the figure).
-   Only the magnitude of P (N) is randomized, from a small set of round values.
-   Loads are always downward and the applied couple at E is always
-   drawn/solved with a fixed sense (dirE). Support reactions are solved once
-   from global equilibrium; every section cut afterward reuses those numbers. */
-let P_val, SCALE, posM, R_B, R_D;
-const a_val = 1; /* m — fixed */
+   Geometry is fixed and uniform: every span is exactly a = 3 m (A-B, B-C,
+   C-D, D-E), so there's a single distance value used consistently
+   everywhere instead of mixed multiples. Loads P_A, P_C, P_E and the
+   applied couple M_E at E are each independently randomized to a round
+   multiple of 50 (N or N·m) — no fixed ratio between them. Loads are
+   always downward and the applied couple is always drawn/solved with a
+   fixed sense (dirE). Support reactions are solved once from global
+   equilibrium; every section cut afterward reuses those numbers. */
+let P_A, P_C, P_E, M_E, SCALE, posM, R_B, R_D;
+const a_val = 3; /* m — fixed, uniform span */
 const X0 = 150;
 const dirE = 1; /* +1 = counterclockwise-positive applied couple at E */
 const BEAM_HH = 20;
 const CY_TOP = 118;
 const CY_CUT = 140;
 const NS = "http://www.w3.org/2000/svg";
-const P_OPTIONS = [200, 300, 400, 500, 600, 800, 1000]; /* N */
 
 function xPix(m){ return X0 + m*SCALE; }
-function Me(){ return 3*P_val*a_val; }
+function rand50(lo, hi){ const steps = (hi-lo)/50; return lo + 50*Math.floor(Math.random()*(steps+1)); }
 
 function getPointLoads(){
   return [
-    {id:'A', label:'P',  mag:P_val,   x:posM.A},
-    {id:'C', label:'P',  mag:P_val,   x:posM.C},
-    {id:'E', label:'2P', mag:2*P_val, x:posM.E}
+    {id:'A', mag:P_A, x:posM.A},
+    {id:'C', mag:P_C, x:posM.C},
+    {id:'E', mag:P_E, x:posM.E}
   ];
 }
 function getSupports(){
@@ -166,16 +168,19 @@ function nearestSpecialDist(xm){
 }
 
 function randomizeLoads(){
-  P_val = P_OPTIONS[Math.floor(Math.random()*P_OPTIONS.length)];
-  posM = { A:0, B:3*a_val, C:5*a_val, D:7*a_val, E:10*a_val };
-  SCALE = 720/(10*a_val);
+  P_A = rand50(100, 1000);
+  P_C = rand50(100, 1000);
+  P_E = rand50(100, 1000);
+  M_E = rand50(200, 2000);
+  posM = { A:0, B:a_val, C:2*a_val, D:3*a_val, E:4*a_val };
+  SCALE = 720/(4*a_val);
   computeReactions();
 }
 function computeReactions(){
   const armA = posM.A-posM.B, armC = posM.C-posM.B, armE = posM.E-posM.B, armD = posM.D-posM.B;
-  const sumMB_known = (-P_val)*armA + (-P_val)*armC + (-2*P_val)*armE + dirE*Me();
+  const sumMB_known = (-P_A)*armA + (-P_C)*armC + (-P_E)*armE + dirE*M_E;
   R_D = -sumMB_known/armD;
-  R_B = 4*P_val - R_D;
+  R_B = (P_A+P_C+P_E) - R_D;
 }
 
 /* Method of sections: V and M computed from BOTH the left and right piece,
@@ -193,7 +198,7 @@ function computeCut(xm){
   const V_left = loadsLeft.reduce((s,n)=>s+n.mag,0) - supLeft.reduce((s,r)=>s+r.R,0);
   const M_left = supLeft.reduce((s,r)=>s+r.R*(xm-r.x),0) - loadsLeft.reduce((s,n)=>s+n.mag*(xm-n.x),0);
   const V_right = supRight.reduce((s,r)=>s+r.R,0) - loadsRight.reduce((s,n)=>s+n.mag,0);
-  const M_right = supRight.reduce((s,r)=>s+r.R*(r.x-xm),0) - loadsRight.reduce((s,n)=>s+n.mag*(n.x-xm),0) + (includeMomentInRight? dirE*Me() : 0);
+  const M_right = supRight.reduce((s,r)=>s+r.R*(r.x-xm),0) - loadsRight.reduce((s,n)=>s+n.mag*(n.x-xm),0) + (includeMomentInRight? dirE*M_E : 0);
 
   const seg = segmentAt(xm);
   return { seg, loadsLeft, loadsRight, supLeft, supRight, includeMomentInRight, V_left, M_left, V_right, M_right, V:V_left, M:M_left };
@@ -294,14 +299,14 @@ function drawSupportOnPiece(parent, s, offset, cy){
   vArrow(parent, x, y1, y2, 'var(--force)', 3, 9);
   subLabel(parent, x+16, (yBeam+yFar)/2+4, 'R', s.id, ` = ${Math.abs(s.R).toFixed(0)} N`, {'text-anchor':'start'});
 }
-function loadArrowDown(parent, xNode, label, mag, cy, hh, len){
+function loadArrowDown(parent, xNode, id, mag, cy, hh, len){
   const y1 = cy-hh-len, y2 = cy-hh-2;
   vArrow(parent, xNode, y1, y2, 'var(--force)', 3.2, 9);
-  text(xNode, y1-8, `${label} = ${mag} N`, {'text-anchor':'middle','font-size':13,'font-weight':700,fill:'var(--force)'}, parent);
+  subLabel(parent, xNode, y1-8, 'P', id, ` = ${mag} N`, {'text-anchor':'middle'});
 }
 function drawAppliedMoment(parent, xNode, cy, r){
   momentArc(parent, xNode, cy, r, dirE>0, false, 'var(--force)', 3);
-  text(xNode, cy-r-11, `3Pa = ${Me().toFixed(0)} N·m`, {'text-anchor':'middle','font-size':13,'font-weight':700,fill:'var(--force)'}, parent);
+  subLabel(parent, xNode, cy-r-11, 'M', 'E', ` = ${M_E.toFixed(0)} N·m`, {'text-anchor':'middle'});
 }
 function upArrowHead(x,y,size,color,parent){
   const pts = `${x},${y} ${x-size*0.62},${y+size} ${x+size*0.62},${y+size}`;
@@ -345,7 +350,7 @@ function drawBeamSchematic(parent, cy, opts={}){
   drawRollerSupport(parent, xPix(posM.D), cy, BEAM_HH);
   if(!opts.skipDims) drawDimensionLine(parent, cy+BEAM_HH+65);
   getPointLoads().forEach(n=>{
-    loadArrowDown(parent, xPix(n.x), n.label, n.mag, cy, BEAM_HH, opts.loadLen||40);
+    loadArrowDown(parent, xPix(n.x), n.id, n.mag, cy, BEAM_HH, opts.loadLen||40);
   });
   drawAppliedMoment(parent, xPix(posM.E)+34, cy-6, opts.momentR||18);
 }
@@ -443,14 +448,14 @@ function renderCut(xm, R){
   /* left piece */
   drawBeamPiece(g, posM.A, xm, -GAP, CY_CUT);
   R.supLeft.forEach(s=>drawSupportOnPiece(g, s, -GAP, CY_CUT));
-  R.loadsLeft.forEach(n=>loadArrowDown(g, xPix(n.x)-GAP, n.label, n.mag, CY_CUT, BEAM_HH, 34));
+  R.loadsLeft.forEach(n=>loadArrowDown(g, xPix(n.x)-GAP, n.id, n.mag, CY_CUT, BEAM_HH, 34));
   drawCutFace(g, cutXpix-GAP, CY_CUT, R.V_left, R.M_left, true);
   text(xPix(posM.A)-GAP+2, 26, 'LEFT FREE BODY', {'font-size':13,'font-weight':700,fill:'var(--ink)'},g);
 
   /* right piece */
   drawBeamPiece(g, xm, posM.E, GAP, CY_CUT);
   R.supRight.forEach(s=>drawSupportOnPiece(g, s, GAP, CY_CUT));
-  R.loadsRight.forEach(n=>loadArrowDown(g, xPix(n.x)+GAP, n.label, n.mag, CY_CUT, BEAM_HH, 34));
+  R.loadsRight.forEach(n=>loadArrowDown(g, xPix(n.x)+GAP, n.id, n.mag, CY_CUT, BEAM_HH, 34));
   if(R.includeMomentInRight) drawAppliedMoment(g, xPix(posM.E)+GAP+30, CY_CUT-6, 16);
   drawCutFace(g, cutXpix+GAP, CY_CUT, R.V_right, R.M_right, false);
   text(xPix(posM.E)+GAP-2, 26, 'RIGHT FREE BODY', {'font-size':13,'font-weight':700,fill:'var(--ink)','text-anchor':'end'},g);
@@ -503,14 +508,17 @@ function renderReactionsPanel(){
   c.innerHTML = '';
   prose(c, 'Global equilibrium of the whole beam. Sum moments about B first — it removes R_B from the equation:');
   const armC = posM.C-posM.B, armE = posM.E-posM.B, armA = posM.B-posM.A, armD = posM.D-posM.B;
+  const numD = -P_A*armA + P_C*armC + P_E*armE - M_E;
   kxAligned(c, [
-    `\\Sigma M_B = 0 &= P(${armA.toFixed(0)}) - P(${armC.toFixed(0)}) - 2P(${armE.toFixed(0)}) + 3Pa + R_D(${armD.toFixed(0)})`,
-    `R_D &= \\dfrac{-P(${armA.toFixed(0)}) + P(${armC.toFixed(0)}) + 2P(${armE.toFixed(0)}) - 3Pa}{${armD.toFixed(0)}} = \\dfrac{${(-P_val*armA + P_val*armC + 2*P_val*armE - Me()).toFixed(0)}}{${armD.toFixed(0)}} = ${R_D.toFixed(0)}\\ \\text{N}`
+    `\\Sigma M_B &= 0`,
+    `0 &= P_A(${armA.toFixed(0)}) - P_C(${armC.toFixed(0)}) - P_E(${armE.toFixed(0)}) + M_E + R_D(${armD.toFixed(0)})`,
+    `R_D &= \\dfrac{-P_A(${armA.toFixed(0)}) + P_C(${armC.toFixed(0)}) + P_E(${armE.toFixed(0)}) - M_E}{${armD.toFixed(0)}} = \\dfrac{${numD.toFixed(0)}}{${armD.toFixed(0)}} = ${R_D.toFixed(0)}\\ \\text{N}`
   ]);
   prose(c, 'Then sum vertical forces:');
   kxAligned(c, [
-    `\\Sigma F_y = 0 = R_B + R_D - P - P - 2P`,
-    `R_B = 4P - R_D = ${(4*P_val).toFixed(0)} - ${R_D.toFixed(0)} = ${R_B.toFixed(0)}\\ \\text{N}`
+    `\\Sigma F_y &= 0`,
+    `0 &= R_B + R_D - P_A - P_C - P_E`,
+    `R_B &= P_A + P_C + P_E - R_D = ${(P_A+P_C+P_E).toFixed(0)} - ${R_D.toFixed(0)} = ${R_B.toFixed(0)}\\ \\text{N}`
   ]);
 }
 
@@ -522,36 +530,40 @@ function fillPanels(R, xm){
   const L = document.getElementById('panelLeftContent'); L.innerHTML='';
   const leftBits = [];
   R.supLeft.forEach(s=>leftBits.push(`R_${s.id} = ${s.R.toFixed(0)}\\ \\text{N (up)}`));
-  R.loadsLeft.forEach(n=>leftBits.push(`${n.label}_{${n.id}} = ${n.mag}\\ \\text{N (down)}`));
+  R.loadsLeft.forEach(n=>leftBits.push(`P_{${n.id}} = ${n.mag}\\ \\text{N (down)}`));
   prose(L, leftBits.length ? 'Acting on the left piece:' : 'Nothing acts on the left piece yet — it starts from the free end at A.');
   if(leftBits.length) kx(L, `\\quad ${leftBits.join(',\\quad ')}`);
   const vTermsL = R.supLeft.map(s=>` + ${s.R.toFixed(0)}`).join('') + R.loadsLeft.map(n=>` - ${n.mag}`).join('');
   kxAligned(L, [
-    `\\Sigma F_y = 0 &= ${R.supLeft.map(s=>`R_${s.id}`).join(' + ')||''}${R.loadsLeft.map(n=>` - ${n.label}_{${n.id}}`).join('')} + V_{${seg}}`,
+    `\\Sigma F_y &= 0`,
+    `0 &= ${R.supLeft.map(s=>`R_${s.id}`).join(' + ')||''}${R.loadsLeft.map(n=>` - P_{${n.id}}`).join('')} + V_{${seg}}`,
     `V_{${seg}} &= -\\left(0${vTermsL}\\right) = ${R.V_left.toFixed(0)}\\ \\text{N}`
   ]);
-  const mTermsSym = R.supLeft.map(s=>`R_${s.id}(x-${s.x.toFixed(0)})`).join(' + ') + R.loadsLeft.map(n=>` - ${n.label}_{${n.id}}(x-${n.x.toFixed(0)})`).join('');
+  const mTermsSym = R.supLeft.map(s=>`R_${s.id}(x-${s.x.toFixed(0)})`).join(' + ') + R.loadsLeft.map(n=>` - P_{${n.id}}(x-${n.x.toFixed(0)})`).join('');
   const mTermsNum = R.supLeft.map(s=>` + ${s.R.toFixed(0)}(${xm.toFixed(1)}-${s.x.toFixed(0)})`).join('') + R.loadsLeft.map(n=>` - ${n.mag}(${xm.toFixed(1)}-${n.x.toFixed(0)})`).join('');
   kxAligned(L, [
-    `\\Sigma M_{cut} = 0 &= ${mTermsSym||'0'} - M_{${seg}}`,
+    `\\Sigma M_{cut} &= 0`,
+    `0 &= ${mTermsSym||'0'} - M_{${seg}}`,
     `M_{${seg}} &= 0${mTermsNum} = ${R.M_left.toFixed(0)}\\ \\text{N}\\cdot\\text{m}`
   ]);
 
   const Rp = document.getElementById('panelRightContent'); Rp.innerHTML='';
   const rightBits = [];
   R.supRight.forEach(s=>rightBits.push(`R_${s.id} = ${s.R.toFixed(0)}\\ \\text{N (up)}`));
-  R.loadsRight.forEach(n=>rightBits.push(`${n.label}_{${n.id}} = ${n.mag}\\ \\text{N (down)}`));
-  if(R.includeMomentInRight) rightBits.push(`3Pa = ${Me().toFixed(0)}\\ \\text{N}\\cdot\\text{m}`);
+  R.loadsRight.forEach(n=>rightBits.push(`P_{${n.id}} = ${n.mag}\\ \\text{N (down)}`));
+  if(R.includeMomentInRight) rightBits.push(`M_E = ${M_E.toFixed(0)}\\ \\text{N}\\cdot\\text{m}`);
   prose(Rp, 'Acting on the right piece:');
   kx(Rp, `\\quad ${rightBits.join(',\\quad ')}`);
   kxAligned(Rp, [
-    `\\Sigma F_y = 0 &= -V_{${seg}}${R.supRight.map(s=>` + R_${s.id}`).join('')}${R.loadsRight.map(n=>` - ${n.label}_{${n.id}}`).join('')}`,
+    `\\Sigma F_y &= 0`,
+    `0 &= -V_{${seg}}${R.supRight.map(s=>` + R_${s.id}`).join('')}${R.loadsRight.map(n=>` - P_{${n.id}}`).join('')}`,
     `V_{${seg}} &= 0${R.supRight.map(s=>` + ${s.R.toFixed(0)}`).join('')}${R.loadsRight.map(n=>` - ${n.mag}`).join('')} = ${R.V_right.toFixed(0)}\\ \\text{N}`
   ]);
-  const mTermsSymR = R.supRight.map(s=>`R_${s.id}(${s.x.toFixed(0)}-x)`).join(' + ') + R.loadsRight.map(n=>` - ${n.label}_{${n.id}}(${n.x.toFixed(0)}-x)`).join('') + (R.includeMomentInRight?' + 3Pa':'');
-  const mTermsNumR = R.supRight.map(s=>` + ${s.R.toFixed(0)}(${s.x.toFixed(0)}-${xm.toFixed(1)})`).join('') + R.loadsRight.map(n=>` - ${n.mag}(${n.x.toFixed(0)}-${xm.toFixed(1)})`).join('') + (R.includeMomentInRight?` + ${Me().toFixed(0)}`:'');
+  const mTermsSymR = R.supRight.map(s=>`R_${s.id}(${s.x.toFixed(0)}-x)`).join(' + ') + R.loadsRight.map(n=>` - P_{${n.id}}(${n.x.toFixed(0)}-x)`).join('') + (R.includeMomentInRight?' + M_E':'');
+  const mTermsNumR = R.supRight.map(s=>` + ${s.R.toFixed(0)}(${s.x.toFixed(0)}-${xm.toFixed(1)})`).join('') + R.loadsRight.map(n=>` - ${n.mag}(${n.x.toFixed(0)}-${xm.toFixed(1)})`).join('') + (R.includeMomentInRight?` + ${M_E.toFixed(0)}`:'');
   kxAligned(Rp, [
-    `\\Sigma M_{cut} = 0 &= -M_{${seg}} + ${mTermsSymR||'0'}`,
+    `\\Sigma M_{cut} &= 0`,
+    `0 &= -M_{${seg}} + ${mTermsSymR||'0'}`,
     `M_{${seg}} &= 0${mTermsNumR} = ${R.M_right.toFixed(0)}\\ \\text{N}\\cdot\\text{m}`
   ]);
 
