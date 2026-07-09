@@ -237,18 +237,17 @@ function drawWall(parent, xFacePix, cy, halfH){
   }
 }
 /* Applied torque at a node — drawn on the shaft centerline as a double-headed
-   vector (right-hand rule), or as a curving arrow offset above the shaft. */
+   vector (right-hand rule), or as a curving arrow centered on that same axis. */
 function torqueLoadGlyph(parent, xNode, dir, magnitude, subChar, cy, hh, len){
   if(arrowStyle==='double'){
     const x2 = xNode + dir*len;
     el('line',{x1:xNode,y1:cy,x2,y2:cy,stroke:'var(--paper)','stroke-width':7,'stroke-linecap':'round'},parent);
     doubleHeadedArrow(xNode, cy, x2, 'var(--force)', 3.2, parent, 9);
-    const labelX = xNode + dir*(len+12);
-    subLabel(parent, labelX, cy-hh-10, 'T', subChar, ` = ${magnitude} N·m`, {'text-anchor': dir>0?'start':'end'});
+    subLabel(parent, xNode, cy-hh-10, 'T', subChar, ` = ${magnitude} N·m`, {'text-anchor':'middle'});
   } else {
-    const yBot = cy - hh - 4, yTop = yBot - 36;
-    curvedTorqueArrow(parent, xNode, yTop, yBot, dir, 'var(--force)', 3);
-    subLabel(parent, xNode, yTop-10, 'T', subChar, ` = ${magnitude} N·m`, {'text-anchor':'middle'});
+    const halfSpan = hh + 14;
+    curvedTorqueArrow(parent, xNode, cy-halfSpan, cy+halfSpan, dir, 'var(--force)', 3);
+    subLabel(parent, xNode, cy-halfSpan-8, 'T', subChar, ` = ${magnitude} N·m`, {'text-anchor':'middle'});
   }
 }
 
@@ -404,8 +403,8 @@ function drawTorqueFace(parent, xf, seg, cy, T, sideDir, arrowLen){
     doubleHeadedArrow(xf, cy, x2, 'var(--force)', 3, parent, 9);
     subLabel(parent, labelX, cy+hh+24, 'T', String(seg.n), ` = ${T.toFixed(1)} N·m`, {'text-anchor':anchor});
   } else {
-    const yBot = cy - hh - 4, yTop = yBot - 30;
-    curvedTorqueArrow(parent, xf, yTop, yBot, arrowDir, 'var(--force)', 3);
+    const halfSpan = hh + 12;
+    curvedTorqueArrow(parent, xf, cy-halfSpan, cy+halfSpan, arrowDir, 'var(--force)', 3);
     subLabel(parent, labelX, cy+hh+24, 'T', String(seg.n), ` = ${T.toFixed(1)} N·m`, {'text-anchor':anchor});
   }
 }
@@ -422,11 +421,11 @@ function drawTorqueReaction(parent, x, cy){
     el('line',{x1:x,y1:cy,x2,y2:cy,stroke:'var(--force)','stroke-width':2.4,'stroke-dasharray':'2,3'},parent);
     arrowHead(x2-dirTA*7,cy,dirTA,8,'var(--force)',parent);
     arrowHead(x2,cy,dirTA,8,'var(--force)',parent);
-    subLabel(parent, x+dirTA*len/2, cy+40, 'T', 'A', ` = ${T_A_mag.toFixed(1)} N·m`, {'text-anchor':'middle'});
+    subLabel(parent, x, cy+40, 'R', 'A', ` = ${T_A_mag.toFixed(1)} N·m`, {'text-anchor':'middle'});
   } else {
-    const yBot = cy - 24, yTop = yBot - 26;
-    curvedTorqueArrow(parent, x, yTop, yBot, dirTA, 'var(--force)', 2.4, true);
-    subLabel(parent, x, yTop-10, 'T', 'A', ` = ${T_A_mag.toFixed(1)} N·m`, {'text-anchor':'middle'});
+    const halfSpan = 24;
+    curvedTorqueArrow(parent, x, cy-halfSpan, cy+halfSpan, dirTA, 'var(--force)', 2.4, true);
+    subLabel(parent, x, cy-halfSpan-8, 'R', 'A', ` = ${T_A_mag.toFixed(1)} N·m`, {'text-anchor':'middle'});
   }
 }
 
@@ -451,22 +450,22 @@ function fillPanels(R, xin){
   document.getElementById('panels').classList.add('show');
   document.getElementById('agreement').classList.add('show');
   const k = R.seg.n;
-  const taTerm = dirTA>0 ? 'T_A' : '-T_A';
+  const raTerm = dirTA>0 ? 'R_A' : '-R_A';
   const coeffTA = -dirTA;
   const loadNodes = nodes.filter(n=>n.T!==undefined);
 
   const L = document.getElementById('panelLeftContent'); L.innerHTML='';
   prose(L, 'The wall reaction — global equilibrium of the whole shaft about its axis, sign matching the arrow direction shown:');
   kxAligned(L, [
-    `\\Sigma M_x = 0 &= ${taTerm}${loadNodes.map(tTermSym).join('')}`,
-    `T_A &= ${loadNodes.map(n=>((-dirTA*n.dir)>0?' + ':' - ')+`T_{${n.id}}`).join('')}`,
-    `T_A &= ${loadNodes.map(n=>((-dirTA*n.dir)>0?' + ':' - ')+n.T.toFixed(1)).join('')} = ${T_A_mag.toFixed(1)}\\ \\text{N\\cdot m}`
+    `\\Sigma M_x = 0 &= ${raTerm}${loadNodes.map(tTermSym).join('')}`,
+    `R_A &= ${loadNodes.map(n=>((-dirTA*n.dir)>0?' + ':' - ')+`T_{${n.id}}`).join('')}`,
+    `R_A &= ${loadNodes.map(n=>((-dirTA*n.dir)>0?' + ':' - ')+n.T.toFixed(1)).join('')} = ${T_A_mag.toFixed(1)}\\ \\text{N·m}`
   ]);
-  prose(L, 'Now the left piece (A → cut), using that same T_A:');
+  prose(L, 'Now the left piece (A → cut), using that same R_A:');
   kxAligned(L, [
-    `\\Sigma M_x = 0 &= ${taTerm}${R.leftNodes.map(tTermSym).join('')} + T_{${k}}`,
-    `T_{${k}} &= ${coeffTA>0?'T_A':'-T_A'}${R.leftNodes.map(n=>((-n.dir)>0?' + ':' - ')+`T_{${n.id}}`).join('')}`,
-    `T_{${k}} &= ${coeffTA>0?T_A_mag.toFixed(1):'-'+T_A_mag.toFixed(1)}${R.leftNodes.map(n=>((-n.dir)>0?' + ':' - ')+n.T.toFixed(1)).join('')} = ${R.T_left.toFixed(2)}\\ \\text{N\\cdot m}`
+    `\\Sigma M_x = 0 &= ${raTerm}${R.leftNodes.map(tTermSym).join('')} + T_{${k}}`,
+    `T_{${k}} &= ${coeffTA>0?'R_A':'-R_A'}${R.leftNodes.map(n=>((-n.dir)>0?' + ':' - ')+`T_{${n.id}}`).join('')}`,
+    `T_{${k}} &= ${coeffTA>0?T_A_mag.toFixed(1):'-'+T_A_mag.toFixed(1)}${R.leftNodes.map(n=>((-n.dir)>0?' + ':' - ')+n.T.toFixed(1)).join('')} = ${R.T_left.toFixed(2)}\\ \\text{N·m}`
   ]);
 
   const Rp = document.getElementById('panelRightContent'); Rp.innerHTML='';
@@ -474,14 +473,14 @@ function fillPanels(R, xin){
   kxAligned(Rp, [
     `\\Sigma M_x = 0 &= -T_{${k}}${R.rightNodes.map(tTermSym).join('')}`,
     `T_{${k}} &= ${R.rightNodes.map(n=>(n.dir>0?' + ':' - ')+`T_{${n.id}}`).join('') || '0'}`,
-    `T_{${k}} &= ${R.rightNodes.map(n=>(n.dir>0?' + ':' - ')+n.T.toFixed(1)).join('') || '0'} = ${R.T_right.toFixed(2)}\\ \\text{N\\cdot m}`
+    `T_{${k}} &= ${R.rightNodes.map(n=>(n.dir>0?' + ':' - ')+n.T.toFixed(1)).join('') || '0'} = ${R.T_right.toFixed(2)}\\ \\text{N·m}`
   ]);
 
   document.getElementById('agreeMath').innerHTML='';
   const span = document.createElement('span');
   document.getElementById('agreeMath').appendChild(span);
   const noteTex = R.T<0 ? `\\ \\ (\\text{negative} \\Rightarrow \\text{vector actually points the other way})` : '';
-  katex.render(`\\text{Both free bodies agree:}\\quad T_{${k}} = ${R.T.toFixed(2)}\\ \\text{N\\cdot m}${noteTex}`, span, {throwOnError:false, displayMode:false});
+  katex.render(`\\text{Both free bodies agree:}\\quad T_{${k}} = ${R.T.toFixed(2)}\\ \\text{N·m}${noteTex}`, span, {throwOnError:false, displayMode:false});
 }
 
 /* ---------- Torque-vs-position plot ---------- */
