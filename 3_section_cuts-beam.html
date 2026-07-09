@@ -295,16 +295,16 @@ function drawRollerSupport(parent, x, cy, hh){
     el('line',{x1:hx-5,y1:baseY+10,x2:hx+5,y2:baseY,stroke:'var(--steel)','stroke-width':1},parent);
   }
 }
-/* Reaction arrows are drawn BELOW the beam, at the support, pointing up into
-   the beam (or down, away from it, if the computed reaction is negative). */
+/* Reaction arrows are drawn BELOW the beam, at the support, always pointing
+   up into the beam — a negative computed reaction just means the true
+   direction is actually down; the label shows the signed value rather than
+   flipping the arrow. */
 function drawSupportOnPiece(parent, s, offset, cy){
   const x = xPix(s.x)+offset;
   if(s.id==='B') drawPinSupport(parent, x, cy, BEAM_HH); else drawRollerSupport(parent, x, cy, BEAM_HH);
-  const dir = s.R<0 ? -1 : 1;
   const len = 24, yBeam = cy+BEAM_HH, yFar = yBeam+len;
-  const y1 = dir>0 ? yFar : yBeam, y2 = dir>0 ? yBeam : yFar;
-  vArrow(parent, x, y1, y2, 'var(--force)', 3, 9);
-  subLabel(parent, x+16, (yBeam+yFar)/2+4, 'R', s.id, ` = ${Math.abs(s.R).toFixed(0)} N`, {'text-anchor':'start'});
+  vArrow(parent, x, yFar, yBeam, 'var(--force)', 3, 9);
+  subLabel(parent, x+16, (yBeam+yFar)/2+4, 'R', s.id, ` = ${s.R.toFixed(0)} N`, {'text-anchor':'start'});
 }
 function loadArrowDown(parent, xNode, id, mag, cy, hh, len){
   const y1 = cy-hh-len, y2 = cy-hh-2;
@@ -486,11 +486,11 @@ function drawCutFace(parent, xf, cy, V, M, isLeft){
   const vy1 = cy - BEAM_HH*0.82, vy2 = cy + BEAM_HH*0.82;
   const y1 = isLeft ? vy2 : vy1, y2 = isLeft ? vy1 : vy2;
   vArrow(parent, vx, y1, y2, 'var(--force)', 3, 8);
-  subLabel(parent, vx, vy1-9, 'V', '', ` = ${V.toFixed(0)} N`, {'text-anchor':'middle'});
+  subLabel(parent, vx, vy1-9, 'V(x)', '', ` = ${V.toFixed(0)} N`, {'text-anchor':'middle'});
 
   const mx = xf + gapSide*48;
   momentArc(parent, mx, cy, 15, isLeft, !isLeft, 'var(--force)', 2.6);
-  subLabel(parent, mx, cy+62, 'M', '', ` = ${M.toFixed(0)} N·m`, {'text-anchor':'middle'});
+  subLabel(parent, mx, cy+62, 'M(x)', '', ` = ${M.toFixed(0)} N·m`, {'text-anchor':'middle'});
 }
 
 /* ---------- KaTeX helpers ---------- */
@@ -530,41 +530,40 @@ function renderReactionsPanel(){
 function fillPanels(R, xm){
   document.getElementById('panels').classList.add('show');
   document.getElementById('agreement').classList.add('show');
-  const seg = R.seg.n;
 
   const L = document.getElementById('panelLeftContent'); L.innerHTML='';
   prose(L, 'Sum forces on the left piece:');
   const vTermsL = R.supLeft.map(s=>` + ${s.R.toFixed(0)}`).join('') + R.loadsLeft.map(n=>` - ${n.mag}`).join('');
   kxAligned(L, [
-    `\\Sigma F_y = 0 &= ${R.supLeft.map(s=>`R_${s.id}`).join(' + ')||''}${R.loadsLeft.map(n=>` - P_{${n.id}}`).join('')} + V_{${seg}}`,
-    `V_{${seg}} &= -\\left(0${vTermsL}\\right) = ${R.V_left.toFixed(0)}\\ \\text{N}`
+    `\\Sigma F_y = 0 &= ${R.supLeft.map(s=>`R_${s.id}`).join(' + ')||''}${R.loadsLeft.map(n=>` - P_{${n.id}}`).join('')} + V(x)`,
+    `V(x) &= -\\left(0${vTermsL}\\right) = ${R.V_left.toFixed(0)}\\ \\text{N}`
   ]);
   prose(L, 'Sum moments about the cut:');
   const mTermsSym = R.supLeft.map(s=>`R_${s.id}(x-${symPos(s.id)})`).join(' + ') + R.loadsLeft.map(n=>` - P_{${n.id}}(x-${symPos(n.id)})`).join('');
   const mTermsNum = R.supLeft.map(s=>` + ${s.R.toFixed(0)}(${xm.toFixed(1)}-${s.x.toFixed(0)})`).join('') + R.loadsLeft.map(n=>` - ${n.mag}(${xm.toFixed(1)}-${n.x.toFixed(0)})`).join('');
   kxAligned(L, [
-    `\\Sigma M_{cut} = 0 &= ${mTermsSym||'0'} - M_{${seg}}`,
-    `M_{${seg}} &= 0${mTermsNum} = ${R.M_left.toFixed(0)}\\ \\text{N}\\cdot\\text{m}`
+    `\\Sigma M_{cut} = 0 &= ${mTermsSym||'0'} - M(x)`,
+    `M(x) &= 0${mTermsNum} = ${R.M_left.toFixed(0)}\\ \\text{N}\\cdot\\text{m}`
   ]);
 
   const Rp = document.getElementById('panelRightContent'); Rp.innerHTML='';
   prose(Rp, 'Sum forces on the right piece:');
   kxAligned(Rp, [
-    `\\Sigma F_y = 0 &= -V_{${seg}}${R.supRight.map(s=>` + R_${s.id}`).join('')}${R.loadsRight.map(n=>` - P_{${n.id}}`).join('')}`,
-    `V_{${seg}} &= 0${R.supRight.map(s=>` + ${s.R.toFixed(0)}`).join('')}${R.loadsRight.map(n=>` - ${n.mag}`).join('')} = ${R.V_right.toFixed(0)}\\ \\text{N}`
+    `\\Sigma F_y = 0 &= -V(x)${R.supRight.map(s=>` + R_${s.id}`).join('')}${R.loadsRight.map(n=>` - P_{${n.id}}`).join('')}`,
+    `V(x) &= 0${R.supRight.map(s=>` + ${s.R.toFixed(0)}`).join('')}${R.loadsRight.map(n=>` - ${n.mag}`).join('')} = ${R.V_right.toFixed(0)}\\ \\text{N}`
   ]);
   prose(Rp, 'Sum moments about the cut:');
   const mTermsSymR = R.supRight.map(s=>`R_${s.id}(${symPos(s.id)}-x)`).join(' + ') + R.loadsRight.map(n=>` - P_{${n.id}}(${symPos(n.id)}-x)`).join('') + (R.includeMomentInRight?' + M_E':'');
   const mTermsNumR = R.supRight.map(s=>` + ${s.R.toFixed(0)}(${s.x.toFixed(0)}-${xm.toFixed(1)})`).join('') + R.loadsRight.map(n=>` - ${n.mag}(${n.x.toFixed(0)}-${xm.toFixed(1)})`).join('') + (R.includeMomentInRight?` + ${M_E.toFixed(0)}`:'');
   kxAligned(Rp, [
-    `\\Sigma M_{cut} = 0 &= -M_{${seg}} + ${mTermsSymR||'0'}`,
-    `M_{${seg}} &= 0${mTermsNumR} = ${R.M_right.toFixed(0)}\\ \\text{N}\\cdot\\text{m}`
+    `\\Sigma M_{cut} = 0 &= -M(x) + ${mTermsSymR||'0'}`,
+    `M(x) &= 0${mTermsNumR} = ${R.M_right.toFixed(0)}\\ \\text{N}\\cdot\\text{m}`
   ]);
 
   const vSpan = document.getElementById('agreeMathV');
-  katex.render(`\\text{Both free bodies agree:}\\quad V_{${seg}} = ${R.V.toFixed(0)}\\ \\text{N}`, vSpan, {throwOnError:false, displayMode:false});
+  katex.render(`\\text{Both free bodies agree:}\\quad V(x) = ${R.V.toFixed(0)}\\ \\text{N}`, vSpan, {throwOnError:false, displayMode:false});
   const mSpan = document.getElementById('agreeMathM');
-  katex.render(`\\text{Both free bodies agree:}\\quad M_{${seg}} = ${R.M.toFixed(0)}\\ \\text{N}\\cdot\\text{m}`, mSpan, {throwOnError:false, displayMode:false});
+  katex.render(`\\text{Both free bodies agree:}\\quad M(x) = ${R.M.toFixed(0)}\\ \\text{N}\\cdot\\text{m}`, mSpan, {throwOnError:false, displayMode:false});
 }
 
 /* ---------- Shear / moment vs. position plots (data only — the beam
