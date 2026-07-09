@@ -108,7 +108,7 @@
   </div>
 
   <div class="section-title">Moment vs. position</div>
-  <p class="section-sub">Moment is piecewise linear between loads — its slope equals the shear on that segment. Watch it jump only where the applied couple at E acts.</p>
+  <p class="section-sub">Moment is piecewise linear between loads — its slope changes wherever shear jumps. Watch it jump only where the applied couple at E acts.</p>
   <div class="stage">
     <svg id="momentDiagram" viewBox="0 0 1100 190" preserveAspectRatio="xMidYMid meet"></svg>
   </div>
@@ -180,18 +180,19 @@ function computeReactions(){
 
 /* Method of sections: V and M computed from BOTH the left and right piece,
    independently, so the panels can show either derivation and confirm they agree.
-   Standard sign convention: V positive points down on the left piece's cut
-   face / up on the right piece's; M positive is sagging (curls "cup up" on
-   both faces, drawn CCW on the left face / CW on the right). */
+   Sign convention (as specified): V positive points UP on the left piece's
+   cut face / DOWN on the right piece's (the reverse of the usual textbook
+   convention). M positive is sagging (curls "cup up" on both faces, drawn
+   CCW on the left face / CW on the right) — unaffected by the V flip. */
 function computeCut(xm){
   const loads = getPointLoads(), supports = getSupports();
   const loadsLeft = loads.filter(n=>n.x<xm), loadsRight = loads.filter(n=>n.x>xm);
   const supLeft = supports.filter(s=>s.x<xm), supRight = supports.filter(s=>s.x>xm);
   const includeMomentInRight = posM.E > xm;
 
-  const V_left = supLeft.reduce((s,r)=>s+r.R,0) - loadsLeft.reduce((s,n)=>s+n.mag,0);
+  const V_left = loadsLeft.reduce((s,n)=>s+n.mag,0) - supLeft.reduce((s,r)=>s+r.R,0);
   const M_left = supLeft.reduce((s,r)=>s+r.R*(xm-r.x),0) - loadsLeft.reduce((s,n)=>s+n.mag*(xm-n.x),0);
-  const V_right = -( supRight.reduce((s,r)=>s+r.R,0) - loadsRight.reduce((s,n)=>s+n.mag,0) );
+  const V_right = supRight.reduce((s,r)=>s+r.R,0) - loadsRight.reduce((s,n)=>s+n.mag,0);
   const M_right = supRight.reduce((s,r)=>s+r.R*(r.x-xm),0) - loadsRight.reduce((s,n)=>s+n.mag*(n.x-xm),0) + (includeMomentInRight? dirE*Me() : 0);
 
   const seg = segmentAt(xm);
@@ -289,10 +290,9 @@ function drawSupportOnPiece(parent, s, offset, cy){
   if(s.id==='B') drawPinSupport(parent, x, cy, BEAM_HH); else drawRollerSupport(parent, x, cy, BEAM_HH);
   const dir = s.R<0 ? -1 : 1;
   const len = 24, yBeam = cy+BEAM_HH, yFar = yBeam+len;
-  const ax = x + 27;
   const y1 = dir>0 ? yFar : yBeam, y2 = dir>0 ? yBeam : yFar;
-  vArrow(parent, ax, y1, y2, 'var(--force)', 3, 9);
-  subLabel(parent, ax+9, (yBeam+yFar)/2+4, 'R', s.id, ` = ${Math.abs(s.R).toFixed(0)} N`, {'text-anchor':'start'});
+  vArrow(parent, x, y1, y2, 'var(--force)', 3, 9);
+  subLabel(parent, x+16, (yBeam+yFar)/2+4, 'R', s.id, ` = ${Math.abs(s.R).toFixed(0)} N`, {'text-anchor':'start'});
 }
 function loadArrowDown(parent, xNode, label, mag, cy, hh, len){
   const y1 = cy-hh-len, y2 = cy-hh-2;
@@ -432,7 +432,7 @@ function attemptCut(xm){
 const svgCut = document.getElementById('cutview');
 
 function renderCut(xm, R){
-  const GAP = 70;
+  const GAP = 118;
   const cutXpix = xPix(xm);
 
   svgCut.innerHTML='';
@@ -459,24 +459,26 @@ function renderCut(xm, R){
 }
 
 /* Internal shear + moment at the cut, always drawn in the assumed-positive
-   sense: V is a short line right beside (parallel to) the cut edge, pointing
-   down on the left piece's face / up on the right piece's face. M is a
-   half-circle whose open side faces the cut edge, curling CCW on the left
-   face / CW on the right face ("cup up" on both — the sagging-positive
-   convention). A negative value just means the true direction is opposite. */
+   sense: V is a short line on the outside of the cut (in the gap), parallel
+   to the cut edge, pointing UP on the left piece's face / DOWN on the right
+   piece's (the sign convention specified, not the usual textbook one). M is
+   a half-circle in line with the beam, open side facing away from the cut,
+   curling CCW on the left face / CW on the right face ("cup up" on both —
+   the sagging-positive convention). A negative value just means the true
+   direction is opposite. */
 function drawCutFace(parent, xf, cy, V, M, isLeft){
   el('line',{x1:xf,y1:cy-BEAM_HH,x2:xf,y2:cy+BEAM_HH,stroke:'var(--ink)','stroke-width':2.2},parent);
 
-  const outSide = isLeft ? -1 : 1;
-  const vx = xf + outSide*9;
+  const gapSide = isLeft ? 1 : -1;
+  const vx = xf + gapSide*13;
   const vy1 = cy - BEAM_HH*0.82, vy2 = cy + BEAM_HH*0.82;
-  const y1 = isLeft ? vy1 : vy2, y2 = isLeft ? vy2 : vy1;
+  const y1 = isLeft ? vy2 : vy1, y2 = isLeft ? vy1 : vy2;
   vArrow(parent, vx, y1, y2, 'var(--force)', 3, 8);
-  subLabel(parent, xf + outSide*22, cy, 'V', '', ` = ${V.toFixed(0)} N`, {'text-anchor': isLeft?'end':'start'});
+  subLabel(parent, vx, vy1-9, 'V', '', ` = ${V.toFixed(0)} N`, {'text-anchor':'middle'});
 
-  const mx = xf + outSide*46;
-  momentArc(parent, mx, cy + BEAM_HH + 62, 14, isLeft, isLeft, 'var(--force)', 2.6);
-  subLabel(parent, mx, cy + BEAM_HH + 62 + 24, 'M', '', ` = ${M.toFixed(0)} N·m`, {'text-anchor':'middle'});
+  const mx = xf + gapSide*48;
+  momentArc(parent, mx, cy, 15, isLeft, !isLeft, 'var(--force)', 2.6);
+  subLabel(parent, mx, cy+62, 'M', '', ` = ${M.toFixed(0)} N·m`, {'text-anchor':'middle'});
 }
 
 /* ---------- KaTeX helpers ---------- */
@@ -525,8 +527,8 @@ function fillPanels(R, xm){
   if(leftBits.length) kx(L, `\\quad ${leftBits.join(',\\quad ')}`);
   const vTermsL = R.supLeft.map(s=>` + ${s.R.toFixed(0)}`).join('') + R.loadsLeft.map(n=>` - ${n.mag}`).join('');
   kxAligned(L, [
-    `\\Sigma F_y = 0 &= ${R.supLeft.map(s=>`R_${s.id}`).join(' + ')||''}${R.loadsLeft.map(n=>` - ${n.label}_{${n.id}}`).join('')} - V_{${seg}}`,
-    `V_{${seg}} &= 0${vTermsL} = ${R.V_left.toFixed(0)}\\ \\text{N}`
+    `\\Sigma F_y = 0 &= ${R.supLeft.map(s=>`R_${s.id}`).join(' + ')||''}${R.loadsLeft.map(n=>` - ${n.label}_{${n.id}}`).join('')} + V_{${seg}}`,
+    `V_{${seg}} &= -\\left(0${vTermsL}\\right) = ${R.V_left.toFixed(0)}\\ \\text{N}`
   ]);
   const mTermsSym = R.supLeft.map(s=>`R_${s.id}(x-${s.x.toFixed(0)})`).join(' + ') + R.loadsLeft.map(n=>` - ${n.label}_{${n.id}}(x-${n.x.toFixed(0)})`).join('');
   const mTermsNum = R.supLeft.map(s=>` + ${s.R.toFixed(0)}(${xm.toFixed(1)}-${s.x.toFixed(0)})`).join('') + R.loadsLeft.map(n=>` - ${n.mag}(${xm.toFixed(1)}-${n.x.toFixed(0)})`).join('');
@@ -543,8 +545,8 @@ function fillPanels(R, xm){
   prose(Rp, 'Acting on the right piece:');
   kx(Rp, `\\quad ${rightBits.join(',\\quad ')}`);
   kxAligned(Rp, [
-    `\\Sigma F_y = 0 &= V_{${seg}}${R.supRight.map(s=>` + R_${s.id}`).join('')}${R.loadsRight.map(n=>` - ${n.label}_{${n.id}}`).join('')}`,
-    `V_{${seg}} &= 0${R.supRight.map(s=>` - ${s.R.toFixed(0)}`).join('')}${R.loadsRight.map(n=>` + ${n.mag}`).join('')} = ${R.V_right.toFixed(0)}\\ \\text{N}`
+    `\\Sigma F_y = 0 &= -V_{${seg}}${R.supRight.map(s=>` + R_${s.id}`).join('')}${R.loadsRight.map(n=>` - ${n.label}_{${n.id}}`).join('')}`,
+    `V_{${seg}} &= 0${R.supRight.map(s=>` + ${s.R.toFixed(0)}`).join('')}${R.loadsRight.map(n=>` - ${n.mag}`).join('')} = ${R.V_right.toFixed(0)}\\ \\text{N}`
   ]);
   const mTermsSymR = R.supRight.map(s=>`R_${s.id}(${s.x.toFixed(0)}-x)`).join(' + ') + R.loadsRight.map(n=>` - ${n.label}_{${n.id}}(${n.x.toFixed(0)}-x)`).join('') + (R.includeMomentInRight?' + 3Pa':'');
   const mTermsNumR = R.supRight.map(s=>` + ${s.R.toFixed(0)}(${s.x.toFixed(0)}-${xm.toFixed(1)})`).join('') + R.loadsRight.map(n=>` - ${n.mag}(${n.x.toFixed(0)}-${xm.toFixed(1)})`).join('') + (R.includeMomentInRight?` + ${Me().toFixed(0)}`:'');
