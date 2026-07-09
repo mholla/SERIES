@@ -141,7 +141,7 @@ const segments = [
   { n:2, x0:20, x1:40, type:'solid', d:40,          label:'②' },
   { n:3, x0:40, x1:60, type:'solid', d:30,          label:'③' }
 ];
-const NODE_TOL = 2; /* mm — how close to a node counts as "on the applied torque" */
+const NODE_TOL = 0.5; /* mm — how close to a node counts as "on the applied torque" */
 
 let sumSignedT, T_A_signed, dirTA, T_A_mag;
 let arrowStyle = 'curved';
