@@ -197,12 +197,14 @@ function doubleHeadedArrow(x1,y,x2,color,width,parent,headSize=9){
   arrowHead(x2-dir*headSize*0.85,y,dir,headSize,color,parent);
   arrowHead(x2,y,dir,headSize,color,parent);
 }
-/* A curving arrow around the shaft's cross-section, viewed edge-on as a flattened
-   ellipse — same convention as the curved torque arrows in the textbook figure.
-   dir>0 sweeps clockwise (a vector pointing toward +x by the right-hand rule);
-   dir<0 sweeps counter-clockwise (vector toward -x). */
+/* A shallow curving arrow hugging the shaft surface — a shallow dome rather than a
+   full loop, arrowhead diving back down onto the surface at one end. dir>0 sweeps
+   left-to-right (arrowhead lands on the right, vector points toward +x by the
+   right-hand rule); dir<0 sweeps right-to-left (arrowhead on the left, vector
+   toward -x). This is the same convention as the double-headed vector: dir>0 in
+   both styles always means "vector toward +x." */
 function curvedTorqueArrow(parent, cx, cy0, rx, ry, dir, color, sw=3, dashed=false){
-  const spanStart = 115, spanEnd = 115+310, steps = 56;
+  const spanStart = 165, spanEnd = 165+210, steps = 40;
   let d = '';
   for(let i=0;i<=steps;i++){
     const t = i/steps;
@@ -254,10 +256,11 @@ function torqueLoadGlyph(parent, xNode, dir, magnitude, subChar, cy, hh, len){
     const labelX = xNode + dir*(len+12);
     subLabel(parent, labelX, cy-hh-10, 'T', subChar, ` = ${magnitude} N·m`, {'text-anchor': dir>0?'start':'end'});
   } else {
-    const rx = hh*0.85+16, ry = hh*0.5+9;
-    const cyArc = cy - hh - ry - 6;
+    const rx = hh*0.6+13, ry = hh*0.2+9;
+    const baseline = cy - hh - 3;
+    const cyArc = baseline - ry*0.2588;
     curvedTorqueArrow(parent, xNode, cyArc, rx, ry, dir, 'var(--force)', 3);
-    subLabel(parent, xNode, cyArc-ry-10, 'T', subChar, ` = ${magnitude} N·m`, {'text-anchor':'middle'});
+    subLabel(parent, xNode, baseline-ry*1.2588-10, 'T', subChar, ` = ${magnitude} N·m`, {'text-anchor':'middle'});
   }
 }
 
@@ -413,8 +416,9 @@ function drawTorqueFace(parent, xf, seg, cy, T, sideDir, arrowLen){
     doubleHeadedArrow(xf, cy, x2, 'var(--force)', 3, parent, 9);
     subLabel(parent, labelX, cy+hh+24, 'T', String(seg.n), ` = ${T.toFixed(1)} N·m`, {'text-anchor':anchor});
   } else {
-    const rx = hh*0.6+10, ry = hh*0.4+6;
-    const cyArc = cy - hh - ry - 5;
+    const rx = hh*0.5+9, ry = hh*0.18+7;
+    const baseline = cy - hh - 3;
+    const cyArc = baseline - ry*0.2588;
     curvedTorqueArrow(parent, xf, cyArc, rx, ry, arrowDir, 'var(--force)', 3);
     subLabel(parent, labelX, cy+hh+24, 'T', String(seg.n), ` = ${T.toFixed(1)} N·m`, {'text-anchor':anchor});
   }
@@ -434,10 +438,11 @@ function drawTorqueReaction(parent, x, cy){
     arrowHead(x2,cy,dirTA,8,'var(--force)',parent);
     subLabel(parent, x+dirTA*len/2, cy+40, 'T', 'A', ` = ${T_A_mag.toFixed(1)} N·m`, {'text-anchor':'middle'});
   } else {
-    const rx = 26, ry = 16;
-    const cyArc = cy-38;
+    const rx = 20, ry = 10;
+    const baseline = cy - 23;
+    const cyArc = baseline - ry*0.2588;
     curvedTorqueArrow(parent, x, cyArc, rx, ry, dirTA, 'var(--force)', 2.4, true);
-    subLabel(parent, x, cyArc-ry-10, 'T', 'A', ` = ${T_A_mag.toFixed(1)} N·m`, {'text-anchor':'middle'});
+    subLabel(parent, x, baseline-ry*1.2588-10, 'T', 'A', ` = ${T_A_mag.toFixed(1)} N·m`, {'text-anchor':'middle'});
   }
 }
 
