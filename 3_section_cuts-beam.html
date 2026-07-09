@@ -163,6 +163,13 @@ function getSegments(){
   ];
 }
 function segmentAt(xm){ return getSegments().find(s=>xm>s.x0+1e-6 && xm<s.x1-1e-6) || null; }
+/* Symbolic position of a node in terms of the uniform span a (A=0, B=a,
+   C=2a, D=3a, E=4a) — used for the symbolic setup line of each equation,
+   kept separate from the numeric substitution line that follows it. */
+function symPos(id){
+  const mult = {A:0, B:1, C:2, D:3, E:4}[id];
+  return mult===0 ? '0' : (mult===1 ? 'a' : `${mult}a`);
+}
 function nearestSpecialDist(xm){
   return Math.min(...[posM.A,posM.B,posM.C,posM.D,posM.E].map(p=>Math.abs(p-xm)));
 }
@@ -511,8 +518,8 @@ function renderReactionsPanel(){
   const numD = -P_A*armA + P_C*armC + P_E*armE - M_E;
   kxAligned(c, [
     `\\Sigma M_B &= 0`,
-    `0 &= P_A(${armA.toFixed(0)}) - P_C(${armC.toFixed(0)}) - P_E(${armE.toFixed(0)}) + M_E + R_D(${armD.toFixed(0)})`,
-    `R_D &= \\dfrac{-P_A(${armA.toFixed(0)}) + P_C(${armC.toFixed(0)}) + P_E(${armE.toFixed(0)}) - M_E}{${armD.toFixed(0)}} = \\dfrac{${numD.toFixed(0)}}{${armD.toFixed(0)}} = ${R_D.toFixed(0)}\\ \\text{N}`
+    `0 &= P_A(a) - P_C(a) - P_E(3a) + M_E + R_D(2a)`,
+    `R_D &= \\dfrac{-P_A(a) + P_C(a) + P_E(3a) - M_E}{2a} = \\dfrac{-P_A(${armA.toFixed(0)}) + P_C(${armC.toFixed(0)}) + P_E(${armE.toFixed(0)}) - M_E}{${armD.toFixed(0)}} = \\dfrac{${numD.toFixed(0)}}{${armD.toFixed(0)}} = ${R_D.toFixed(0)}\\ \\text{N}`
   ]);
   prose(c, 'Then sum vertical forces:');
   kxAligned(c, [
@@ -528,18 +535,15 @@ function fillPanels(R, xm){
   const seg = R.seg.n;
 
   const L = document.getElementById('panelLeftContent'); L.innerHTML='';
-  const leftBits = [];
-  R.supLeft.forEach(s=>leftBits.push(`R_${s.id} = ${s.R.toFixed(0)}\\ \\text{N (up)}`));
-  R.loadsLeft.forEach(n=>leftBits.push(`P_{${n.id}} = ${n.mag}\\ \\text{N (down)}`));
-  prose(L, leftBits.length ? 'Acting on the left piece:' : 'Nothing acts on the left piece yet — it starts from the free end at A.');
-  if(leftBits.length) kx(L, `\\quad ${leftBits.join(',\\quad ')}`);
+  prose(L, 'Sum forces on the left piece:');
   const vTermsL = R.supLeft.map(s=>` + ${s.R.toFixed(0)}`).join('') + R.loadsLeft.map(n=>` - ${n.mag}`).join('');
   kxAligned(L, [
     `\\Sigma F_y &= 0`,
     `0 &= ${R.supLeft.map(s=>`R_${s.id}`).join(' + ')||''}${R.loadsLeft.map(n=>` - P_{${n.id}}`).join('')} + V_{${seg}}`,
     `V_{${seg}} &= -\\left(0${vTermsL}\\right) = ${R.V_left.toFixed(0)}\\ \\text{N}`
   ]);
-  const mTermsSym = R.supLeft.map(s=>`R_${s.id}(x-${s.x.toFixed(0)})`).join(' + ') + R.loadsLeft.map(n=>` - P_{${n.id}}(x-${n.x.toFixed(0)})`).join('');
+  prose(L, 'Sum moments about the cut:');
+  const mTermsSym = R.supLeft.map(s=>`R_${s.id}(x-${symPos(s.id)})`).join(' + ') + R.loadsLeft.map(n=>` - P_{${n.id}}(x-${symPos(n.id)})`).join('');
   const mTermsNum = R.supLeft.map(s=>` + ${s.R.toFixed(0)}(${xm.toFixed(1)}-${s.x.toFixed(0)})`).join('') + R.loadsLeft.map(n=>` - ${n.mag}(${xm.toFixed(1)}-${n.x.toFixed(0)})`).join('');
   kxAligned(L, [
     `\\Sigma M_{cut} &= 0`,
@@ -548,18 +552,14 @@ function fillPanels(R, xm){
   ]);
 
   const Rp = document.getElementById('panelRightContent'); Rp.innerHTML='';
-  const rightBits = [];
-  R.supRight.forEach(s=>rightBits.push(`R_${s.id} = ${s.R.toFixed(0)}\\ \\text{N (up)}`));
-  R.loadsRight.forEach(n=>rightBits.push(`P_{${n.id}} = ${n.mag}\\ \\text{N (down)}`));
-  if(R.includeMomentInRight) rightBits.push(`M_E = ${M_E.toFixed(0)}\\ \\text{N}\\cdot\\text{m}`);
-  prose(Rp, 'Acting on the right piece:');
-  kx(Rp, `\\quad ${rightBits.join(',\\quad ')}`);
+  prose(Rp, 'Sum forces on the right piece:');
   kxAligned(Rp, [
     `\\Sigma F_y &= 0`,
     `0 &= -V_{${seg}}${R.supRight.map(s=>` + R_${s.id}`).join('')}${R.loadsRight.map(n=>` - P_{${n.id}}`).join('')}`,
     `V_{${seg}} &= 0${R.supRight.map(s=>` + ${s.R.toFixed(0)}`).join('')}${R.loadsRight.map(n=>` - ${n.mag}`).join('')} = ${R.V_right.toFixed(0)}\\ \\text{N}`
   ]);
-  const mTermsSymR = R.supRight.map(s=>`R_${s.id}(${s.x.toFixed(0)}-x)`).join(' + ') + R.loadsRight.map(n=>` - P_{${n.id}}(${n.x.toFixed(0)}-x)`).join('') + (R.includeMomentInRight?' + M_E':'');
+  prose(Rp, 'Sum moments about the cut:');
+  const mTermsSymR = R.supRight.map(s=>`R_${s.id}(${symPos(s.id)}-x)`).join(' + ') + R.loadsRight.map(n=>` - P_{${n.id}}(${symPos(n.id)}-x)`).join('') + (R.includeMomentInRight?' + M_E':'');
   const mTermsNumR = R.supRight.map(s=>` + ${s.R.toFixed(0)}(${s.x.toFixed(0)}-${xm.toFixed(1)})`).join('') + R.loadsRight.map(n=>` - ${n.mag}(${n.x.toFixed(0)}-${xm.toFixed(1)})`).join('') + (R.includeMomentInRight?` + ${M_E.toFixed(0)}`:'');
   kxAligned(Rp, [
     `\\Sigma M_{cut} &= 0`,
