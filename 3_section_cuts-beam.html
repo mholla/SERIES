@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Beam Section Cut Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<style>
+  :root{
+    --paper:#EFF2ED; --ink:#1B2B3A; --steel:#78838F; --steel-light:#C7CEC6;
+    --force:#AE3527; --teal:#1F7A6C; --teal-soft:#D6E7E2;
+    --panel-bg:#FFFFFF; --panel-border:#D7DBD1;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans',sans-serif;-webkit-font-smoothing:antialiased;}
+  .app{max-width:1180px;margin:0 auto;padding:28px 24px 60px;}
+  header{border-bottom:2px solid var(--ink);padding-bottom:16px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;}
+  .title-block .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--steel);}
+  .title-block h1{margin:2px 0 4px;font-size:26px;font-weight:600;letter-spacing:-0.01em;}
+  .title-block p{margin:0;font-size:14px;color:var(--steel);max-width:600px;}
+  .legend{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--steel);display:flex;gap:16px;flex-wrap:wrap;}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .swatch{width:12px;height:12px;border-radius:2px;display:inline-block;}
+  .stage{position:relative;margin-top:18px;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:6px;padding:6px 6px 0;}
+  svg#diagram, svg#shearDiagram, svg#momentDiagram{width:100%;display:block;cursor:default;}
+  .hint-bar{display:flex;justify-content:space-between;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--steel);padding:8px 14px 12px;border-top:1px dashed var(--panel-border);}
+  .hint-bar #liveReading{color:var(--teal);font-weight:600;}
+  .panel{background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:6px;padding:16px 18px 18px;}
+  .panel h3{margin:0 0 12px;font-size:14px;letter-spacing:0.03em;text-transform:uppercase;}
+  .panel .prose{font-size:13px;color:var(--steel);margin:10px 0 4px;}
+  .katexline{margin:2px 0 10px;overflow-x:auto;}
+  .katexline .katex-display{margin:0.25em 0;}
+  #reactionsPanel{margin-top:18px;}
+  #panels{display:none;margin-top:22px;grid-template-columns:1fr 1fr;gap:18px;}
+  #panels.show{display:grid;}
+  @media (max-width:760px){#panels{grid-template-columns:1fr;}}
+  #agreement{display:none;margin-top:16px;}
+  #agreement.show{display:block;}
+  .agree-box{border:1.5px solid var(--teal);background:var(--teal-soft);border-radius:6px;padding:14px 18px;display:flex;flex-direction:column;gap:6px;}
+  .agree-box .line{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .agree-box .check{font-family:'IBM Plex Mono',monospace;font-size:20px;color:var(--teal);font-weight:700;}
+  .section-title{margin:40px 0 4px;font-size:18px;font-weight:600;border-top:2px solid var(--ink);padding-top:16px;}
+  .section-sub{font-size:13.5px;color:var(--steel);margin:0 0 14px;max-width:640px;}
+  .plot-toolbar{display:flex;justify-content:flex-end;margin-top:8px;}
+  button.reset-btn{
+    font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:12.5px;
+    border:1.5px solid var(--ink);background:transparent;color:var(--ink);
+    padding:6px 14px;border-radius:4px;cursor:pointer;
+  }
+  button.reset-btn:hover{background:var(--ink);color:var(--paper);}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="title-block">
+      <div class="eyebrow">SERIES · Step 1 — Section (Beams)</div>
+      <h1>Beam Section Cut Explorer</h1>
+      <p>How many section cuts do you have to make to determine the internal shear and moment at every point in this beam?</p>
+    </div>
+    <div class="legend">
+      <span><span class="swatch" style="background:var(--force)"></span>load / internal action</span>
+      <span><span class="swatch" style="background:var(--teal)"></span>section cut</span>
+    </div>
+  </header>
+
+  <div class="stage">
+    <svg id="diagram" viewBox="0 0 1100 300" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="hint-bar">
+      <span id="liveReading">Click anywhere to determine the internal shear and moment.</span>
+      <span id="xReadout"></span>
+    </div>
+  </div>
+
+  <div class="panel" id="reactionsPanel">
+    <h3>Support reactions</h3>
+    <div id="reactionsContent"></div>
+  </div>
+
+  <svg id="cutview" viewBox="-40 0 1180 340" preserveAspectRatio="xMidYMid meet" style="width:100%;display:none;margin-top:14px;"></svg>
+
+  <div id="panels">
+    <div class="panel" id="panelLeft">
+      <h3>Left free body</h3>
+      <div id="panelLeftContent"></div>
+    </div>
+    <div class="panel" id="panelRight">
+      <h3>Right free body</h3>
+      <div id="panelRightContent"></div>
+    </div>
+  </div>
+  <div id="agreement">
+    <div class="agree-box">
+      <div class="line"><span class="check">✓</span><span id="agreeMathV"></span></div>
+      <div class="line"><span class="check">✓</span><span id="agreeMathM"></span></div>
+    </div>
+  </div>
+
+  <div class="section-title">Shear vs. position</div>
+  <p class="section-sub">Every cut you make above drops a point here. Shear is piecewise constant — it only jumps where a concentrated load or reaction acts.</p>
+  <div class="stage">
+    <svg id="shearDiagram" viewBox="0 0 1100 360" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+
+  <div class="section-title">Moment vs. position</div>
+  <p class="section-sub">Moment is piecewise linear between loads — its slope equals the shear on that segment. Watch it jump only where the applied couple at E acts.</p>
+  <div class="stage">
+    <svg id="momentDiagram" viewBox="0 0 1100 360" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+  <div class="plot-toolbar">
+    <button class="reset-btn" id="resetPlotBtn">Reset</button>
+  </div>
+
+</div>
+
+<script>
+/* ---------- Data model ----------
+   Geometry is fixed as multiples of `a` (3a, 2a, 2a, 3a); only the magnitudes of
+   a (ft) and P (kips) are randomized. Loads are always downward and the applied
+   couple at E is always drawn/solved with a fixed sense (dirE), matching the
+   figure. Support reactions are solved once from global equilibrium; every
+   section cut afterward reuses those numbers. */
+let a_val, P_val, SCALE, posFt, R_B, R_D;
+const X0 = 150;
+const dirE = 1; /* +1 = counterclockwise-positive applied couple at E */
+const BEAM_HH = 20;
+const CY_TOP = 125;
+const CY_CUT = 150;
+const NS = "http://www.w3.org/2000/svg";
+
+function xPix(ft){ return X0 + ft*SCALE; }
+function Me(){ return 3*P_val*a_val; }
+
+function getPointLoads(){
+  return [
+    {id:'A', label:'P',  mag:P_val,   x:posFt.A},
+    {id:'C', label:'P',  mag:P_val,   x:posFt.C},
+    {id:'E', label:'2P', mag:2*P_val, x:posFt.E}
+  ];
+}
+function getSupports(){
+  return [ {id:'B', x:posFt.B, R:R_B}, {id:'D', x:posFt.D, R:R_D} ];
+}
+function getSegments(){
+  return [
+    {n:1, x0:posFt.A, x1:posFt.B, label:'①'},
+    {n:2, x0:posFt.B, x1:posFt.C, label:'②'},
+    {n:3, x0:posFt.C, x1:posFt.D, label:'③'},
+    {n:4, x0:posFt.D, x1:posFt.E, label:'④'}
+  ];
+}
+function segmentAt(xft){ return getSegments().find(s=>xft>s.x0+1e-6 && xft<s.x1-1e-6) || null; }
+function nearestSpecialDist(xft){
+  return Math.min(...[posFt.A,posFt.B,posFt.C,posFt.D,posFt.E].map(p=>Math.abs(p-xft)));
+}
+
+function randomizeLoads(){
+  a_val = 2 + Math.floor(Math.random()*5);   /* 2..6 ft */
+  P_val = 2 + Math.floor(Math.random()*7);   /* 2..8 kips */
+  posFt = { A:0, B:3*a_val, C:5*a_val, D:7*a_val, E:10*a_val };
+  SCALE = 720/(10*a_val);
+  computeReactions();
+}
+function computeReactions(){
+  const armA = posFt.A-posFt.B, armC = posFt.C-posFt.B, armE = posFt.E-posFt.B, armD = posFt.D-posFt.B;
+  const sumMB_known = (-P_val)*armA + (-P_val)*armC + (-2*P_val)*armE + dirE*Me();
+  R_D = -sumMB_known/armD;
+  R_B = 4*P_val - R_D;
+}
+
+/* Method of sections: V and M computed from BOTH the left and right piece,
+   independently, so the panels can show either derivation and confirm they agree. */
+function computeCut(xft){
+  const loads = getPointLoads(), supports = getSupports();
+  const loadsLeft = loads.filter(n=>n.x<xft), loadsRight = loads.filter(n=>n.x>xft);
+  const supLeft = supports.filter(s=>s.x<xft), supRight = supports.filter(s=>s.x>xft);
+  const includeMomentInRight = posFt.E > xft;
+
+  const V_left = supLeft.reduce((s,r)=>s+r.R,0) - loadsLeft.reduce((s,n)=>s+n.mag,0);
+  const M_left = supLeft.reduce((s,r)=>s+r.R*(xft-r.x),0) - loadsLeft.reduce((s,n)=>s+n.mag*(xft-n.x),0);
+  const V_right = -( supRight.reduce((s,r)=>s+r.R,0) - loadsRight.reduce((s,n)=>s+n.mag,0) );
+  const M_right = supRight.reduce((s,r)=>s+r.R*(r.x-xft),0) - loadsRight.reduce((s,n)=>s+n.mag*(n.x-xft),0) + (includeMomentInRight? dirE*Me() : 0);
+
+  const seg = segmentAt(xft);
+  return { seg, loadsLeft, loadsRight, supLeft, supRight, includeMomentInRight, V_left, M_left, V_right, M_right, V:V_left, M:M_left };
+}
+
+/* ---------- Geometry / SVG helpers ---------- */
+function el(tag, attrs, parent){
+  const e = document.createElementNS(NS, tag);
+  for(const k in attrs) if(attrs[k]!==null && attrs[k]!==undefined) e.setAttribute(k, attrs[k]);
+  if(parent) parent.appendChild(e);
+  return e;
+}
+function text(x,y,str,attrs,parent){
+  const t = el('text', Object.assign({x,y,'font-family':"IBM Plex Mono, monospace",'font-size':13,fill:'var(--ink)'}, attrs), parent);
+  t.textContent = str;
+  return t;
+}
+function subLabel(parent, x, y, base, sub, suffix, attrs, color){
+  const t = el('text', Object.assign({x,y,'font-family':"IBM Plex Mono, monospace",'font-size':13,fill:color||'var(--force)','font-weight':700}, attrs), parent);
+  const t1 = el('tspan',{},t); t1.textContent = base;
+  const t2 = el('tspan',{dy:3,'font-size':9},t); t2.textContent = sub;
+  const t3 = el('tspan',{dy:-3},t); t3.textContent = suffix;
+  return t;
+}
+function hArrowHead(x,y,dir,size,color,parent){
+  const pts = `${x},${y} ${x-dir*size},${y-size*0.62} ${x-dir*size},${y+size*0.62}`;
+  el('polygon', {points:pts, fill:color}, parent);
+}
+function vArrowHead(x,y,dir,size,color,parent){
+  const pts = `${x},${y} ${x-size*0.62},${y-dir*size} ${x+size*0.62},${y-dir*size}`;
+  el('polygon', {points:pts, fill:color}, parent);
+}
+function vArrow(parent, x, y1, y2, color, width, headSize=8){
+  const dir = y2>y1 ? 1 : -1;
+  el('line',{x1:x,y1,x2:x,y2,stroke:color,'stroke-width':width,'stroke-linecap':'round'},parent);
+  vArrowHead(x,y2,dir,headSize,color,parent);
+}
+/* True in-plane bending-moment arrow: a real curved arc (the rotation axis for a
+   2D bending moment is perpendicular to the page, so — unlike torque — no
+   projection trick is needed here). ccw=true sweeps counterclockwise. */
+function momentArc(parent, cx, cy0, r, ccw, color, sw=3){
+  const spanStart = 20, spanEnd = 20+300, steps = 48;
+  let d = '';
+  for(let i=0;i<=steps;i++){
+    const t = i/steps;
+    const ang = ccw ? spanEnd - t*(spanEnd-spanStart) : spanStart + t*(spanEnd-spanStart);
+    const rad = ang*Math.PI/180;
+    const x = cx+r*Math.cos(rad), y = cy0+r*Math.sin(rad);
+    d += (i===0?'M ':'L ') + x.toFixed(2)+' '+y.toFixed(2)+' ';
+  }
+  el('path', {d, fill:'none', stroke:color, 'stroke-width':sw, 'stroke-linecap':'round'}, parent);
+  const tipAng = ccw ? spanStart : spanEnd;
+  const rad = tipAng*Math.PI/180;
+  const tx = cx+r*Math.cos(rad), ty = cy0+r*Math.sin(rad);
+  const sweepSign = ccw ? -1 : 1;
+  const dx = -r*Math.sin(rad)*sweepSign, dy = r*Math.cos(rad)*sweepSign;
+  const tl = Math.hypot(dx,dy) || 1, tdx = dx/tl, tdy = dy/tl;
+  const size = 8, nx = -tdy, ny = tdx;
+  const backX = tx-tdx*size, backY = ty-tdy*size;
+  el('polygon', {points:`${tx.toFixed(2)},${ty.toFixed(2)} ${(backX+nx*size*0.55).toFixed(2)},${(backY+ny*size*0.55).toFixed(2)} ${(backX-nx*size*0.55).toFixed(2)},${(backY-ny*size*0.55).toFixed(2)}`, fill:color}, parent);
+}
+function drawBeamPiece(parent, xFromFt, xToFt, offsetPix, cy){
+  const xa = xPix(xFromFt)+offsetPix, xb = xPix(xToFt)+offsetPix;
+  el('rect',{x:xa, y:cy-BEAM_HH, width:Math.max(xb-xa,0.001), height:BEAM_HH*2, fill:'#F6F7F4', stroke:'var(--ink)', 'stroke-width':1.6}, parent);
+}
+function drawPinSupport(parent, x, cy, hh){
+  const apexY = cy+hh, halfW = 15, baseY = apexY+24;
+  el('polygon',{points:`${x},${apexY} ${x-halfW},${baseY} ${x+halfW},${baseY}`, fill:'#DDE1D9', stroke:'var(--ink)','stroke-width':1.3}, parent);
+  el('line',{x1:x-halfW-8,y1:baseY,x2:x+halfW+8,y2:baseY,stroke:'var(--ink)','stroke-width':1.3},parent);
+  for(let i=-3;i<=3;i++){
+    const hx = x+i*7;
+    el('line',{x1:hx-5,y1:baseY+10,x2:hx+5,y2:baseY,stroke:'var(--steel)','stroke-width':1},parent);
+  }
+}
+function drawRollerSupport(parent, x, cy, hh){
+  const topY = cy+hh, r = 9, ccy = topY+r, baseY = ccy+r+7;
+  el('circle',{cx:x,cy:ccy,r,fill:'#DDE1D9',stroke:'var(--ink)','stroke-width':1.3},parent);
+  el('line',{x1:x-19,y1:baseY,x2:x+19,y2:baseY,stroke:'var(--ink)','stroke-width':1.3},parent);
+  for(let i=-3;i<=3;i++){
+    const hx = x+i*7;
+    el('line',{x1:hx-5,y1:baseY+10,x2:hx+5,y2:baseY,stroke:'var(--steel)','stroke-width':1},parent);
+  }
+}
+function drawSupportOnPiece(parent, s, offset, cy){
+  const x = xPix(s.x)+offset;
+  if(s.id==='B') drawPinSupport(parent, x, cy, BEAM_HH); else drawRollerSupport(parent, x, cy, BEAM_HH);
+  const dir = s.R<0 ? -1 : 1;
+  const len = 30, y0 = cy - BEAM_HH - 2;
+  vArrow(parent, x, y0, y0-dir*len, 'var(--force)', 3, 9);
+  subLabel(parent, x+14, y0-dir*len/2, 'R', s.id, ` = ${Math.abs(s.R).toFixed(1)} kips`, {'text-anchor': dir>0 ? 'start':'start'});
+}
+function loadArrowDown(parent, xNode, label, mag, cy, hh, len){
+  const y1 = cy-hh-len, y2 = cy-hh-2;
+  vArrow(parent, xNode, y1, y2, 'var(--force)', 3.2, 9);
+  text(xNode, y1-8, `${label} = ${mag} kips`, {'text-anchor':'middle','font-size':13,'font-weight':700,fill:'var(--force)'}, parent);
+}
+function drawAppliedMoment(parent, xNode, cy, r){
+  momentArc(parent, xNode, cy, r, dirE>0, 'var(--force)', 3);
+  text(xNode, cy-r-11, `3Pa = ${Me().toFixed(0)} kip·ft`, {'text-anchor':'middle','font-size':13,'font-weight':700,fill:'var(--force)'}, parent);
+}
+function upArrowHead(x,y,size,color,parent){
+  const pts = `${x},${y} ${x-size*0.62},${y+size} ${x+size*0.62},${y+size}`;
+  el('polygon', {points:pts, fill:color}, parent);
+}
+function drawAxisIndicator(parent, x0, y0, size=30){
+  const col = 'var(--steel)';
+  el('line',{x1:x0,y1:y0,x2:x0+size,y2:y0,stroke:col,'stroke-width':1.6},parent);
+  hArrowHead(x0+size,y0,1,7,col,parent);
+  text(x0+size+9,y0+4,'x',{'font-size':13,'font-weight':700,fill:col},parent);
+  el('line',{x1:x0,y1:y0,x2:x0,y2:y0-size,stroke:col,'stroke-width':1.6},parent);
+  upArrowHead(x0,y0-size,7,col,parent);
+  text(x0-3,y0-size-9,'y',{'font-size':13,'font-weight':700,fill:col,'text-anchor':'middle'},parent);
+  el('circle',{cx:x0,cy:y0,r:2,fill:col},parent);
+}
+
+/* Shared schematic used by the top diagram and both mini plot-bars. */
+function drawBeamSchematic(parent, cy, opts={}){
+  drawBeamPiece(parent, posFt.A, posFt.E, 0, cy);
+  if(!opts.skipZoneLabels){
+    getSegments().forEach(seg=>{
+      text((xPix(seg.x0)+xPix(seg.x1))/2, cy+BEAM_HH+30, seg.label, {'text-anchor':'middle','font-size':16,fill:'var(--steel)'}, parent);
+    });
+  }
+  ['A','B','C','D','E'].forEach(id=>{
+    const x = xPix(posFt[id]);
+    el('line',{x1:x,y1:cy+BEAM_HH+4,x2:x,y2:cy+BEAM_HH+16,stroke:'var(--steel)','stroke-width':1},parent);
+    text(x, cy+BEAM_HH+50, id, {'text-anchor':'middle','font-size':14,'font-weight':600},parent);
+  });
+  drawPinSupport(parent, xPix(posFt.B), cy, BEAM_HH);
+  drawRollerSupport(parent, xPix(posFt.D), cy, BEAM_HH);
+  getPointLoads().forEach(n=>{
+    loadArrowDown(parent, xPix(n.x), n.label, n.mag, cy, BEAM_HH, opts.loadLen||40);
+  });
+  drawAppliedMoment(parent, xPix(posFt.E)+34, cy-6, opts.momentR||18);
+}
+
+/* ---------- Top diagram ---------- */
+const svgTop = document.getElementById('diagram');
+let hoverLayer, cutMarkerLayer, baseLayer;
+
+function buildTopDiagram(){
+  svgTop.innerHTML = '';
+  baseLayer = el('g',{},svgTop);
+  drawBeamSchematic(baseLayer, CY_TOP, {loadLen:42, momentR:20});
+  drawAxisIndicator(baseLayer, 40, 250, 26);
+  hoverLayer = el('g',{id:'hoverLayer'},svgTop);
+  cutMarkerLayer = el('g',{id:'cutMarkerLayer'},svgTop);
+}
+
+function drawWavyBreak(parent, x, hh, color){
+  const y0 = CY_TOP-hh-10, y1 = CY_TOP+hh+10;
+  const steps = 22, amp = 4.5, cycles = 3.2;
+  let d = `M ${x + amp*Math.sin(0)} ${y0}`;
+  for(let i=1;i<=steps;i++){
+    const t = i/steps;
+    const yy = y0 + t*(y1-y0);
+    const xx = x + amp*Math.sin(t*Math.PI*2*cycles);
+    d += ` L ${xx.toFixed(2)} ${yy.toFixed(2)}`;
+  }
+  el('path',{d, fill:'none', stroke:color, 'stroke-width':2.4, 'stroke-linecap':'round'}, parent);
+}
+
+/* ---------- Hover / click interaction ---------- */
+const liveReading = document.getElementById('liveReading');
+const xReadout = document.getElementById('xReadout');
+let hasCut = false;
+let lastCutXft = null;
+
+function svgPoint(evt){
+  const rect = svgTop.getBoundingClientRect();
+  const vb = svgTop.viewBox.baseVal;
+  const cx = ('touches' in evt && evt.touches[0]) ? evt.touches[0].clientX : evt.clientX;
+  return vb.x + (cx-rect.left)/rect.width*vb.width;
+}
+svgTop.addEventListener('mousemove', evt=>{
+  const px = svgPoint(evt);
+  const xft = Math.min(posFt.E, Math.max(posFt.A, (px-X0)/SCALE));
+  drawHoverGuide(xft);
+});
+svgTop.addEventListener('mouseleave', ()=>{ hoverLayer.innerHTML=''; xReadout.textContent=''; });
+svgTop.addEventListener('click', evt=>{
+  const px = svgPoint(evt);
+  const xft = Math.min(posFt.E, Math.max(posFt.A, (px-X0)/SCALE));
+  attemptCut(xft);
+});
+function drawHoverGuide(xft){
+  hoverLayer.innerHTML='';
+  const seg = segmentAt(xft);
+  if(seg){
+    const x = xPix(xft);
+    el('line',{x1:x,y1:CY_TOP-BEAM_HH-14,x2:x,y2:CY_TOP+BEAM_HH+14,stroke:'var(--steel-light)','stroke-width':1.4},hoverLayer);
+  }
+  xReadout.textContent = `x = ${xft.toFixed(2)} ft`;
+}
+function attemptCut(xft){
+  const tol = Math.max(0.05*a_val, 0.05);
+  if(nearestSpecialDist(xft) < tol){
+    liveReading.textContent = 'Too close to a load or support — try somewhere else.';
+    return;
+  }
+  const seg = segmentAt(xft);
+  const R = computeCut(xft);
+  cutMarkerLayer.innerHTML='';
+  drawWavyBreak(cutMarkerLayer, xPix(xft), BEAM_HH, 'var(--teal)');
+  hasCut = true;
+  lastCutXft = xft;
+  liveReading.textContent = 'Cut made — now try a different segment (on the other side of a load or support).';
+  renderCut(xft, R);
+  plotV.push({x:xft, V:R.V});
+  plotM.push({x:xft, M:R.M});
+  renderShearDiagram();
+  renderMomentDiagram();
+}
+
+/* ---------- Cut view ---------- */
+const svgCut = document.getElementById('cutview');
+
+function renderCut(xft, R){
+  const GAP = 70, ARROW_LEN = 26;
+  const cutXpix = xPix(xft);
+
+  svgCut.innerHTML='';
+  svgCut.style.display='block';
+  const g = el('g',{},svgCut);
+  drawAxisIndicator(g, -10, 285, 26);
+
+  /* left piece */
+  drawBeamPiece(g, posFt.A, xft, -GAP, CY_CUT);
+  R.supLeft.forEach(s=>drawSupportOnPiece(g, s, -GAP, CY_CUT));
+  R.loadsLeft.forEach(n=>loadArrowDown(g, xPix(n.x)-GAP, n.label, n.mag, CY_CUT, BEAM_HH, 34));
+  drawCutFace(g, cutXpix-GAP, CY_CUT, R.V_left, R.M_left, true, ARROW_LEN);
+  text(xPix(posFt.A)-GAP+2, 26, 'LEFT FREE BODY', {'font-size':13,'font-weight':700,fill:'var(--ink)'},g);
+
+  /* right piece */
+  drawBeamPiece(g, xft, posFt.E, GAP, CY_CUT);
+  R.supRight.forEach(s=>drawSupportOnPiece(g, s, GAP, CY_CUT));
+  R.loadsRight.forEach(n=>loadArrowDown(g, xPix(n.x)+GAP, n.label, n.mag, CY_CUT, BEAM_HH, 34));
+  if(R.includeMomentInRight) drawAppliedMoment(g, xPix(posFt.E)+GAP+30, CY_CUT-6, 16);
+  drawCutFace(g, cutXpix+GAP, CY_CUT, R.V_right, R.M_right, false, ARROW_LEN);
+  text(xPix(posFt.E)+GAP-2, 26, 'RIGHT FREE BODY', {'font-size':13,'font-weight':700,fill:'var(--ink)','text-anchor':'end'},g);
+
+  fillPanels(R, xft);
+}
+
+/* Internal shear + moment at the cut, always drawn in the assumed-positive sense:
+   V points down on the left piece's face / up on the right piece's face; M
+   curls counterclockwise ("cup up") on the left face / clockwise on the right
+   face. A negative value just means the true direction is the opposite. */
+function drawCutFace(parent, xf, cy, V, M, isLeft, arrowLen){
+  el('line',{x1:xf,y1:cy-BEAM_HH,x2:xf,y2:cy+BEAM_HH,stroke:'var(--ink)','stroke-width':2.2},parent);
+
+  /* Assumed-positive convention: V points down on the left piece's face, up on
+     the right piece's face. Both V and M are pushed away from the gap (into
+     their own piece) so the left and right annotations never collide. */
+  const outSide = isLeft ? -1 : 1;
+  const vx = xf + outSide*14;
+  const y0 = cy - BEAM_HH - 4;
+  const shortLen = Math.min(arrowLen, 18);
+  const yNear = y0, yFar = y0 - shortLen;
+  vArrow(parent, vx, isLeft?yFar:yNear, isLeft?yNear:yFar, 'var(--force)', 3, 8);
+  subLabel(parent, vx, yFar - 8, 'V', '', ` = ${V.toFixed(1)} kips`, {'text-anchor':'middle'});
+
+  const mx = xf + outSide*36;
+  momentArc(parent, mx, cy + BEAM_HH + 34, 15, isLeft, 'var(--force)', 2.6);
+  subLabel(parent, mx, cy + BEAM_HH + 34 + 26, 'M', '', ` = ${M.toFixed(1)} kip·ft`, {'text-anchor':'middle'});
+}
+
+/* ---------- KaTeX helpers ---------- */
+function kx(container, tex, display=true){
+  const div = document.createElement('div');
+  div.className = 'katexline';
+  container.appendChild(div);
+  katex.render(tex, div, {throwOnError:false, displayMode:display});
+}
+function kxAligned(container, lines){
+  kx(container, `\\begin{aligned}${lines.join(' \\\\ ')}\\end{aligned}`);
+}
+function prose(container, str){
+  const p = document.createElement('div');
+  p.className = 'prose';
+  p.textContent = str;
+  container.appendChild(p);
+}
+
+function renderReactionsPanel(){
+  const c = document.getElementById('reactionsContent');
+  c.innerHTML = '';
+  prose(c, 'Global equilibrium of the whole beam. Sum moments about B first — it removes R_B from the equation:');
+  const armC = posFt.C-posFt.B, armE = posFt.E-posFt.B, armA = posFt.B-posFt.A, armD = posFt.D-posFt.B;
+  kxAligned(c, [
+    `\\Sigma M_B = 0 &= P(${armA.toFixed(0)}) - P(${armC.toFixed(0)}) - 2P(${armE.toFixed(0)}) + 3Pa + R_D(${armD.toFixed(0)})`,
+    `R_D &= \\dfrac{-P(${armA.toFixed(0)}) + P(${armC.toFixed(0)}) + 2P(${armE.toFixed(0)}) - 3Pa}{${armD.toFixed(0)}} = \\dfrac{${(-P_val*armA + P_val*armC + 2*P_val*armE - Me()).toFixed(1)}}{${armD.toFixed(0)}} = ${R_D.toFixed(1)}\\ \\text{kips}`
+  ]);
+  prose(c, 'Then sum vertical forces:');
+  kxAligned(c, [
+    `\\Sigma F_y = 0 = R_B + R_D - P - P - 2P`,
+    `R_B = 4P - R_D = ${(4*P_val).toFixed(1)} - ${R_D.toFixed(1)} = ${R_B.toFixed(1)}\\ \\text{kips}`
+  ]);
+}
+
+function fillPanels(R, xft){
+  document.getElementById('panels').classList.add('show');
+  document.getElementById('agreement').classList.add('show');
+  const seg = R.seg.n;
+
+  const L = document.getElementById('panelLeftContent'); L.innerHTML='';
+  const leftBits = [];
+  R.supLeft.forEach(s=>leftBits.push(`R_${s.id} = ${s.R.toFixed(1)}\\ \\text{kips (up)}`));
+  R.loadsLeft.forEach(n=>leftBits.push(`${n.label}_{${n.id}} = ${n.mag}\\ \\text{kips (down)}`));
+  prose(L, leftBits.length ? 'Acting on the left piece:' : 'Nothing acts on the left piece yet — it starts from the free end at A.');
+  if(leftBits.length) kx(L, `\\quad ${leftBits.join(',\\quad ')}`);
+  const vTermsL = R.supLeft.map(s=>` + ${s.R.toFixed(1)}`).join('') + R.loadsLeft.map(n=>` - ${n.mag}`).join('');
+  kxAligned(L, [
+    `\\Sigma F_y = 0 &= ${R.supLeft.map(s=>`R_${s.id}`).join(' + ')||''}${R.loadsLeft.map(n=>` - ${n.label}_{${n.id}}`).join('')} - V_{${seg}}`,
+    `V_{${seg}} &= 0${vTermsL} = ${R.V_left.toFixed(2)}\\ \\text{kips}`
+  ]);
+  const mTermsSym = R.supLeft.map(s=>`R_${s.id}(x-${s.x.toFixed(1)})`).join(' + ') + R.loadsLeft.map(n=>` - ${n.label}_{${n.id}}(x-${n.x.toFixed(1)})`).join('');
+  const mTermsNum = R.supLeft.map(s=>` + ${s.R.toFixed(1)}(${xft.toFixed(1)}-${s.x.toFixed(1)})`).join('') + R.loadsLeft.map(n=>` - ${n.mag}(${xft.toFixed(1)}-${n.x.toFixed(1)})`).join('');
+  kxAligned(L, [
+    `\\Sigma M_{cut} = 0 &= ${mTermsSym||'0'} - M_{${seg}}`,
+    `M_{${seg}} &= 0${mTermsNum} = ${R.M_left.toFixed(2)}\\ \\text{kip}\\cdot\\text{ft}`
+  ]);
+
+  const Rp = document.getElementById('panelRightContent'); Rp.innerHTML='';
+  const rightBits = [];
+  R.supRight.forEach(s=>rightBits.push(`R_${s.id} = ${s.R.toFixed(1)}\\ \\text{kips (up)}`));
+  R.loadsRight.forEach(n=>rightBits.push(`${n.label}_{${n.id}} = ${n.mag}\\ \\text{kips (down)}`));
+  if(R.includeMomentInRight) rightBits.push(`3Pa = ${Me().toFixed(1)}\\ \\text{kip}\\cdot\\text{ft}`);
+  prose(Rp, 'Acting on the right piece:');
+  kx(Rp, `\\quad ${rightBits.join(',\\quad ')}`);
+  kxAligned(Rp, [
+    `\\Sigma F_y = 0 &= V_{${seg}}${R.supRight.map(s=>` + R_${s.id}`).join('')}${R.loadsRight.map(n=>` - ${n.label}_{${n.id}}`).join('')}`,
+    `V_{${seg}} &= 0${R.supRight.map(s=>` - ${s.R.toFixed(1)}`).join('')}${R.loadsRight.map(n=>` + ${n.mag}`).join('')} = ${R.V_right.toFixed(2)}\\ \\text{kips}`
+  ]);
+  const mTermsSymR = R.supRight.map(s=>`R_${s.id}(${s.x.toFixed(1)}-x)`).join(' + ') + R.loadsRight.map(n=>` - ${n.label}_{${n.id}}(${n.x.toFixed(1)}-x)`).join('') + (R.includeMomentInRight?' + 3Pa':'');
+  const mTermsNumR = R.supRight.map(s=>` + ${s.R.toFixed(1)}(${s.x.toFixed(1)}-${xft.toFixed(1)})`).join('') + R.loadsRight.map(n=>` - ${n.mag}(${n.x.toFixed(1)}-${xft.toFixed(1)})`).join('') + (R.includeMomentInRight?` + ${Me().toFixed(1)}`:'');
+  kxAligned(Rp, [
+    `\\Sigma M_{cut} = 0 &= -M_{${seg}} + ${mTermsSymR||'0'}`,
+    `M_{${seg}} &= 0${mTermsNumR} = ${R.M_right.toFixed(2)}\\ \\text{kip}\\cdot\\text{ft}`
+  ]);
+
+  const vSpan = document.getElementById('agreeMathV');
+  katex.render(`\\text{Both free bodies agree:}\\quad V_{${seg}} = ${R.V.toFixed(2)}\\ \\text{kips}`, vSpan, {throwOnError:false, displayMode:false});
+  const mSpan = document.getElementById('agreeMathM');
+  katex.render(`\\text{Both free bodies agree:}\\quad M_{${seg}} = ${R.M.toFixed(2)}\\ \\text{kip}\\cdot\\text{ft}`, mSpan, {throwOnError:false, displayMode:false});
+}
+
+/* ---------- Shear / moment vs. position plots ---------- */
+const plotV = [], plotM = [];
+let yRangeV, yRangeM;
+const svgV = document.getElementById('shearDiagram');
+const svgM = document.getElementById('momentDiagram');
+const CY_BAR2 = 245, Y_ZERO = 100, Y_HALFSPAN = 70;
+
+function computeRanges(){
+  const xs = [posFt.B+0.5, posFt.B+ (posFt.C-posFt.B)/2, posFt.C+ (posFt.D-posFt.C)/2, posFt.D+0.5, posFt.A+0.5, posFt.E-0.5];
+  const vs = xs.map(x=>Math.abs(computeCut(x).V));
+  const ms = xs.map(x=>Math.abs(computeCut(x).M));
+  yRangeV = Math.max(...vs, 1) * 1.35;
+  yRangeM = Math.max(...ms, 1) * 1.35;
+}
+
+function renderPlotAxes(g, yRange, yLabel){
+  el('line',{x1:xPix(posFt.A)-14,y1:Y_ZERO,x2:xPix(posFt.E)+14,y2:Y_ZERO,stroke:'var(--steel)','stroke-width':1.3},g);
+  text(xPix(posFt.A)-20,Y_ZERO+4,'0',{'text-anchor':'end','font-size':11,fill:'var(--steel)'},g);
+  text(xPix(posFt.A)-20,Y_ZERO-Y_HALFSPAN+4,`+${yRange.toFixed(0)}`,{'text-anchor':'end','font-size':10,fill:'var(--steel-light)'},g);
+  text(xPix(posFt.A)-20,Y_ZERO+Y_HALFSPAN+4,`−${yRange.toFixed(0)}`,{'text-anchor':'end','font-size':10,fill:'var(--steel-light)'},g);
+  const rot = `rotate(-90 ${xPix(posFt.A)-46} ${Y_ZERO})`;
+  text(xPix(posFt.A)-46, Y_ZERO, yLabel, {'text-anchor':'middle','font-size':11,fill:'var(--steel)',transform:rot},g);
+  text((xPix(posFt.A)+xPix(posFt.E))/2, CY_BAR2+90, 'x (ft)', {'text-anchor':'middle','font-size':11,fill:'var(--steel)'},g);
+  ['A','B','C','D','E'].forEach(id=>{
+    const x = xPix(posFt[id]);
+    el('line',{x1:x,y1:22,x2:x,y2:CY_BAR2+30,stroke:'var(--steel-light)','stroke-width':1,'stroke-dasharray':'3,4'},g);
+  });
+}
+
+function renderShearDiagram(){
+  svgV.innerHTML='';
+  const g = el('g',{},svgV);
+  renderPlotAxes(g, yRangeV, 'V (kips)');
+  const yPix = V => Y_ZERO - (V/yRangeV)*Y_HALFSPAN;
+  plotV.forEach(p=>{
+    el('circle',{cx:xPix(p.x),cy:yPix(p.V),r:5.5,fill:'var(--force)',stroke:'#fff','stroke-width':1.5},g);
+  });
+  drawBeamSchematic(g, CY_BAR2, {skipZoneLabels:true, loadLen:32, momentR:14});
+}
+function renderMomentDiagram(){
+  svgM.innerHTML='';
+  const g = el('g',{},svgM);
+  renderPlotAxes(g, yRangeM, 'M (kip·ft)');
+  const yPix = M => Y_ZERO - (M/yRangeM)*Y_HALFSPAN;
+  plotM.forEach(p=>{
+    el('circle',{cx:xPix(p.x),cy:yPix(p.M),r:5.5,fill:'var(--force)',stroke:'#fff','stroke-width':1.5},g);
+  });
+  drawBeamSchematic(g, CY_BAR2, {skipZoneLabels:true, loadLen:32, momentR:14});
+}
+
+document.getElementById('resetPlotBtn').addEventListener('click', ()=>{
+  plotV.length = 0; plotM.length = 0;
+  cutMarkerLayer.innerHTML='';
+  svgCut.style.display='none';
+  document.getElementById('panels').classList.remove('show');
+  document.getElementById('agreement').classList.remove('show');
+  hasCut = false;
+  lastCutXft = null;
+  liveReading.textContent = 'Click anywhere to determine the internal shear and moment.';
+  xReadout.textContent = '';
+  randomizeLoads();
+  renderReactionsPanel();
+  buildTopDiagram();
+  computeRanges();
+  renderShearDiagram();
+  renderMomentDiagram();
+});
+
+/* ---------- Initialize ---------- */
+randomizeLoads();
+renderReactionsPanel();
+buildTopDiagram();
+computeRanges();
+renderShearDiagram();
+renderMomentDiagram();
+</script>
+</body>
+</html>
