@@ -197,6 +197,22 @@ function doubleHeadedArrow(x1,y,x2,color,width,parent,headSize=9){
   arrowHead(x2-dir*headSize*0.85,y,dir,headSize,color,parent);
   arrowHead(x2,y,dir,headSize,color,parent);
 }
+function upArrowHead(x,y,size,color,parent){
+  const pts = `${x},${y} ${x-size*0.62},${y+size} ${x+size*0.62},${y+size}`;
+  el('polygon', {points:pts, fill:color}, parent);
+}
+/* Small reference triad: x to the right, y up (screen convention, so the y
+   arrow is drawn toward -y in SVG coordinates). */
+function drawAxisIndicator(parent, x0, y0, size=30){
+  const col = 'var(--steel)';
+  el('line',{x1:x0,y1:y0,x2:x0+size,y2:y0,stroke:col,'stroke-width':1.6},parent);
+  arrowHead(x0+size,y0,1,7,col,parent);
+  text(x0+size+9,y0+4,'x',{'font-size':13,'font-weight':700,fill:col},parent);
+  el('line',{x1:x0,y1:y0,x2:x0,y2:y0-size,stroke:col,'stroke-width':1.6},parent);
+  upArrowHead(x0,y0-size,7,col,parent);
+  text(x0-3,y0-size-9,'y',{'font-size':13,'font-weight':700,fill:col,'text-anchor':'middle'},parent);
+  el('circle',{cx:x0,cy:y0,r:2,fill:col},parent);
+}
 /* A near-vertical curving arrow: a slightly bowed stroke (the midpoint dragged a
    little to the right) with a single arrowhead at one end, pointing straight up
    or straight down. dir>0 points down; dir<0 points up. Same dir sign as the
@@ -272,6 +288,7 @@ function buildTopDiagram(){
     const hh = halfHeight(segmentAtNode(n));
     torqueLoadGlyph(baseLayer, xPix(n.x), n.dir, n.T, n.id, CY_TOP, hh, 42);
   });
+  drawAxisIndicator(baseLayer, 40, 226, 30);
   hoverLayer = el('g',{id:'hoverLayer'},svgTop);
   cutMarkerLayer = el('g',{id:'cutMarkerLayer'},svgTop);
 }
@@ -372,6 +389,7 @@ function renderCut(xin, R){
   svgCut.style.display='block';
   const g = el('g',{},svgCut);
 
+  drawAxisIndicator(g, -65, 275, 24);
   renderPiece(g, 0, xin, -GAP, CY_CUT);
   drawWall(g, xPix(0)-GAP, CY_CUT, 20);
   nodes.filter(n=>n.x>0 && n.x<xin).forEach(n=>drawNodeOnPiece(g,n,-GAP,CY_CUT));
