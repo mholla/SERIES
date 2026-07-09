@@ -35,6 +35,18 @@
   .katexline{margin:2px 0 10px;overflow-x:auto;}
   .katexline .katex-display{margin:0.25em 0;}
   #reactionsPanel{margin-top:18px;}
+  #reactionsPanel summary{
+    cursor:pointer; list-style:none; font-size:14px; color:var(--ink);
+  }
+  #reactionsPanel summary::-webkit-details-marker{display:none;}
+  #reactionsPanel summary::before{
+    content:'▸'; display:inline-block; margin-right:8px; color:var(--steel);
+    transition:transform 0.15s ease;
+  }
+  #reactionsPanel details[open] summary::before{transform:rotate(90deg);}
+  #reactionsPanel summary b{font-weight:700;}
+  #reactionsPanel .expand-hint{color:var(--teal);font-weight:600;font-size:12.5px;margin-left:6px;}
+  #reactionsPanel #reactionsContent{margin-top:14px;padding-top:4px;border-top:1px dashed var(--panel-border);}
   #panels{display:none;margin-top:22px;grid-template-columns:1fr 1fr;gap:18px;}
   #panels.show{display:grid;}
   @media (max-width:760px){#panels{grid-template-columns:1fr;}}
@@ -78,8 +90,10 @@
   </div>
 
   <div class="panel" id="reactionsPanel">
-    <h3>Support reactions</h3>
-    <div id="reactionsContent"></div>
+    <details id="reactionsDetails">
+      <summary id="reactionsSummary"></summary>
+      <div id="reactionsContent"></div>
+    </details>
   </div>
 
   <svg id="cutview" viewBox="-40 0 1180 320" preserveAspectRatio="xMidYMid meet" style="width:100%;display:none;margin-top:14px;"></svg>
@@ -511,6 +525,8 @@ function prose(container, str){
 }
 
 function renderReactionsPanel(){
+  const summary = document.getElementById('reactionsSummary');
+  summary.innerHTML = `<b>Support reactions:</b> R<sub>B</sub> = ${R_B.toFixed(0)} N, R<sub>D</sub> = ${R_D.toFixed(0)} N. <span class="expand-hint">Expand to see calculations</span>`;
   const c = document.getElementById('reactionsContent');
   c.innerHTML = '';
   prose(c, 'Global equilibrium of the whole beam. Sum moments about B first — it removes R_B from the equation:');
