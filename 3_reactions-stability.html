@@ -479,6 +479,50 @@ function anchorConstant1(xs, raw, anchorXs){
   });
   return -vals.reduce((s,v)=>s+v,0)/vals.length;
 }
+/* For a 1-DOF channel (axial/torque) with MORE THAN ONE reaction, the
+   statics-only (minimum-norm) split shown to the student doesn't
+   generally give a shape with zero displacement at every reaction — a
+   structure truly fixed at several points needs COMPATIBILITY, not just
+   equilibrium (anchorConstant1 above only has one free constant, so it
+   can zero the *average* across multiple anchors, not each one; verified
+   this against a shaft fixed at both ends, which showed equal-and-
+   opposite nonzero twist at the two ends instead of zero at both).
+   Solve, for internal shape purposes ONLY (the displayed reaction values
+   stay the honest minimum-norm split, still labeled "indeterminate"): N
+   equations — 1 equilibrium + (N-1) "zero net change between the
+   leftmost reaction and every other one" — in the N reaction physVals. */
+function solveLinearSystem(A, b){
+  const n = A.length;
+  const M = A.map((row,i)=>row.concat([b[i]]));
+  for(let col=0; col<n; col++){
+    let piv = col;
+    for(let r=col+1;r<n;r++) if(Math.abs(M[r][col])>Math.abs(M[piv][col])) piv=r;
+    [M[col],M[piv]] = [M[piv],M[col]];
+    if(Math.abs(M[col][col])<1e-9) continue;
+    for(let r=0;r<n;r++){
+      if(r===col) continue;
+      const factor = M[r][col]/M[col][col];
+      for(let c=col;c<=n;c++) M[r][c] -= factor*M[col][c];
+    }
+  }
+  return M.map((row,i)=> Math.abs(row[i])>1e-9 ? row[n]/row[i] : 0);
+}
+function compatibleReactionItems(type, reactionsOfType, loadsOfType){
+  const n = reactionsOfType.length;
+  if(n===0) return [];
+  const sorted = reactionsOfType.slice().sort((a,b)=>a.x-b.x);
+  const netApplied = loadsOfType.reduce((s,l)=>s+l.val,0);
+  if(n===1) return [{type, x:sorted[0].x, dir:1, val:-netApplied}];
+  const A = [new Array(n).fill(1)];
+  const b = [-netApplied];
+  for(let k=1;k<n;k++){
+    const xi = sorted[k].x;
+    A.push(sorted.map(r => r.x<xi ? (xi-r.x) : 0));
+    b.push(-loadsOfType.filter(l=>l.x<xi).reduce((s,l)=>s+l.val*(xi-l.x),0));
+  }
+  const physVals = solveLinearSystem(A, b);
+  return sorted.map((r,i)=>({type, x:r.x, dir:1, val:physVals[i]}));
+}
 /* Fit v0, slope0 for the bending shape via least squares against zero
    deflection at transverse-reaction points and zero slope at moment-
    reaction points. */
@@ -544,18 +588,29 @@ function computeDeformation(result){
      shaft with a fixed end and a twisting tip load (was twisting
      opposite the applied torque's own sense). */
   const axialLoaded = loads.some(l=>l.type==='axial');
-  const N = internalAxial(items, xs);
+  const axialLoadItems = loads.filter(l=>l.type==='axial');
+  const axialReactionItems = result.solved.filter(r=>r.type==='axial');
+  /* With more than one reaction this channel is redundant/indeterminate;
+     use the compatibility-solved split for the SHAPE only (still shown
+     to the student as the honest, non-unique minimum-norm values). */
+  const axialShapeItems = axialLoadItems.concat(
+    axialReactionItems.length>1 ? compatibleReactionItems('axial', axialReactionItems, axialLoadItems) : axialReactionItems
+  );
+  const N = internalAxial(axialShapeItems, xs);
   const rawU = cumTrapz(xs, N.map(v=>-v));
-  const axialAnchors = result.solved.filter(r=>r.type==='axial').map(r=>r.x);
-  const u0 = anchorConstant1(xs, rawU, axialAnchors);
+  const u0 = anchorConstant1(xs, rawU, axialReactionItems.map(r=>r.x));
   const axialShifted = rawU.map(v=>v+u0);
   const axialU = axialLoaded ? normalize(axialShifted, 22*magnitudeScale(axialShifted, 2250)) : xs.map(()=>0);
 
   const torqueLoaded = loads.some(l=>l.type==='torque');
-  const T = internalTorque(items, xs);
+  const torqueLoadItems = loads.filter(l=>l.type==='torque');
+  const torqueReactionItems = result.solved.filter(r=>r.type==='torque');
+  const torqueShapeItems = torqueLoadItems.concat(
+    torqueReactionItems.length>1 ? compatibleReactionItems('torque', torqueReactionItems, torqueLoadItems) : torqueReactionItems
+  );
+  const T = internalTorque(torqueShapeItems, xs);
   const rawTwist = cumTrapz(xs, T.map(v=>-v));
-  const torqueAnchors = result.solved.filter(r=>r.type==='torque').map(r=>r.x);
-  const t0 = anchorConstant1(xs, rawTwist, torqueAnchors);
+  const t0 = anchorConstant1(xs, rawTwist, torqueReactionItems.map(r=>r.x));
   const twistShifted = rawTwist.map(v=>v+t0);
   const twist = torqueLoaded ? normalize(twistShifted, 0.9*magnitudeScale(twistShifted, 3000)) : xs.map(()=>0);
 
