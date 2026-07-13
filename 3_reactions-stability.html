@@ -533,9 +533,19 @@ function computeDeformation(result){
   const xs = sampleXs();
   const items = loads.concat(result.solved);
 
+  /* Method of sections: the internal force/torque at a cut is what the
+     REMOVED (right) piece exerts on the remaining (left) piece, which by
+     equilibrium of the left piece is the NEGATIVE of the external
+     items already attached to it (their sum must already be canceled
+     for the left piece to balance). Summing physVal(items to the left)
+     directly — with no negation — gives the wrong sign for both;
+     verified against a rod pulled in tension from a fixed end (was
+     shrinking backward instead of stretching toward the pull) and a
+     shaft with a fixed end and a twisting tip load (was twisting
+     opposite the applied torque's own sense). */
   const axialLoaded = loads.some(l=>l.type==='axial');
   const N = internalAxial(items, xs);
-  const rawU = cumTrapz(xs, N);
+  const rawU = cumTrapz(xs, N.map(v=>-v));
   const axialAnchors = result.solved.filter(r=>r.type==='axial').map(r=>r.x);
   const u0 = anchorConstant1(xs, rawU, axialAnchors);
   const axialShifted = rawU.map(v=>v+u0);
@@ -543,7 +553,7 @@ function computeDeformation(result){
 
   const torqueLoaded = loads.some(l=>l.type==='torque');
   const T = internalTorque(items, xs);
-  const rawTwist = cumTrapz(xs, T);
+  const rawTwist = cumTrapz(xs, T.map(v=>-v));
   const torqueAnchors = result.solved.filter(r=>r.type==='torque').map(r=>r.x);
   const t0 = anchorConstant1(xs, rawTwist, torqueAnchors);
   const twistShifted = rawTwist.map(v=>v+t0);
@@ -581,7 +591,7 @@ function easeOutCubic(t){ return 1-Math.pow(1-t,3); }
    solved). frac: {axial,bend,torque} each in [0,1] settle progress for the
    STABLE channels (0 = undeformed). escape: {dx,dy,rot,twistSpin} rigid-body
    motion for UNSTABLE channels, unbounded. */
-function renderScene(deform, frac, escape){
+function renderScene(deform, frac, escape, animating){
   svgStage.innerHTML = '';
   const pivotPx = escape.pivotPx!==undefined ? escape.pivotPx : xPix(L/2);
   const root = el('g', {transform:`translate(${escape.dx},${escape.dy}) rotate(${escape.rot} ${pivotPx} ${CY})`}, svgStage);
@@ -606,23 +616,27 @@ function renderScene(deform, frac, escape){
      that's an initially-flat line angling diagonally across the length
      (a barber-pole stripe); for a free, ungraded spin (same angle at
      every x) both lines translate up, then down, together in lockstep,
-     which reads unambiguously as the whole cross-section turning. */
-  const fiberSeg = 48;
-  const halfLen = BEAM_HH*0.82;
-  const gap = halfLen*0.32;
-  const lineA = [], lineB = [];
-  for(let i=0;i<=fiberSeg;i++){
-    const xt = L*i/fiberSeg;
-    let lo=0; while(lo<xs.length-1 && xs[lo+1]<xt) lo++;
-    const localTwist = deform.twist[lo]*frac.torque + escape.twistSpin;
-    const ax = xPix(xt) + deform.axialU[lo]*frac.axial;
-    const vy = deform.bendV[lo]*frac.bend;
-    const off = Math.sin(localTwist)*halfLen;
-    lineA.push(`${ax.toFixed(1)},${(CY+vy+off-gap).toFixed(1)}`);
-    lineB.push(`${ax.toFixed(1)},${(CY+vy+off+gap).toFixed(1)}`);
+     which reads unambiguously as the whole cross-section turning. Only
+     drawn while actually animating (Play) — at rest they'd just sit as a
+     flat, static, uninformative line down the middle. */
+  if(animating){
+    const fiberSeg = 48;
+    const halfLen = BEAM_HH*0.82;
+    const gap = halfLen*0.32;
+    const lineA = [], lineB = [];
+    for(let i=0;i<=fiberSeg;i++){
+      const xt = L*i/fiberSeg;
+      let lo=0; while(lo<xs.length-1 && xs[lo+1]<xt) lo++;
+      const localTwist = deform.twist[lo]*frac.torque + escape.twistSpin;
+      const ax = xPix(xt) + deform.axialU[lo]*frac.axial;
+      const vy = deform.bendV[lo]*frac.bend;
+      const off = Math.sin(localTwist)*halfLen;
+      lineA.push(`${ax.toFixed(1)},${(CY+vy+off-gap).toFixed(1)}`);
+      lineB.push(`${ax.toFixed(1)},${(CY+vy+off+gap).toFixed(1)}`);
+    }
+    el('path',{d:'M '+lineA.join(' L '), fill:'none', stroke:'var(--steel)','stroke-width':1.4}, root);
+    el('path',{d:'M '+lineB.join(' L '), fill:'none', stroke:'var(--steel)','stroke-width':1.4}, root);
   }
-  el('path',{d:'M '+lineA.join(' L '), fill:'none', stroke:'var(--steel)','stroke-width':1.4}, root);
-  el('path',{d:'M '+lineB.join(' L '), fill:'none', stroke:'var(--steel)','stroke-width':1.4}, root);
 
   /* node baseline for reference */
   el('line',{x1:xPix(0)-10,y1:CY+BEAM_HH+40,x2:xPix(L)+10,y2:CY+BEAM_HH+40,stroke:'var(--steel-light)','stroke-width':1,'stroke-dasharray':'3,4'},root);
@@ -830,7 +844,7 @@ function play(){
       pivotPx,
       twistSpin: result.torque.stable ? 0 : dirSpin*SPIN_RATE*t
     };
-    renderScene(deform, frac, escape);
+    renderScene(deform, frac, escape, true);
 
     const allStableSettled = result.axial.stable && result.bending.stable && result.torque.stable && settle>=1;
     const anyUnstableFlewAway = (!result.axial.stable && Math.abs(escape.dx)>900)
