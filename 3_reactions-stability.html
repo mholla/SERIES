@@ -546,7 +546,13 @@ function computeDeformation(result){
 
   const bendLoaded = loads.some(l=>l.type==='transverse'||l.type==='moment');
   const M = internalBendingMoment(items, xs);
-  const rawSlope = cumTrapz(xs, M);
+  /* Standard Euler-Bernoulli is EI*v'' = M(x) with v measured POSITIVE
+     UPWARD. On screen v is added directly to SVG y (positive = DOWNWARD),
+     i.e. v_ours = -v_standard, so v_ours'' = -M — this negation was
+     missing, which silently inverted every bending shape (verified via a
+     cantilever: the tip was rising away from a downward load instead of
+     drooping toward it). */
+  const rawSlope = cumTrapz(xs, M.map(v=>-v));
   const rawV = cumTrapz(xs, rawSlope);
   const deflectAnchors = result.solved.filter(r=>r.type==='transverse').map(r=>r.x);
   const slopeAnchors = result.solved.filter(r=>r.type==='moment').map(r=>r.x);
