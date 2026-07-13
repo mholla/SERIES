@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reactions & Stability Playground</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EFF2ED; --ink:#1B2B3A; --steel:#78838F; --steel-light:#C7CEC6;
+    --force:#AE3527; --teal:#1F7A6C; --teal-soft:#D6E7E2;
+    --panel-bg:#FFFFFF; --panel-border:#D7DBD1; --warn:#B8860B;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans',sans-serif;-webkit-font-smoothing:antialiased;}
+  .app{max-width:1180px;margin:0 auto;padding:28px 24px 60px;}
+  header{border-bottom:2px solid var(--ink);padding-bottom:16px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;}
+  .title-block .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--steel);}
+  .title-block h1{margin:2px 0 4px;font-size:26px;font-weight:600;letter-spacing:-0.01em;}
+  .title-block p{margin:0;font-size:14px;color:var(--steel);max-width:640px;}
+  .legend{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--steel);display:flex;gap:16px;flex-wrap:wrap;}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .swatch{width:12px;height:12px;border-radius:2px;display:inline-block;}
+  .stage{position:relative;margin-top:18px;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:6px;padding:6px 6px 0;}
+  svg#stage{width:100%;display:block;}
+  .drop-hint{display:flex;justify-content:space-between;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--steel);padding:8px 14px 12px;border-top:1px dashed var(--panel-border);}
+
+  .palette-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px;}
+  .palette-label{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--steel);letter-spacing:0.04em;text-transform:uppercase;margin-right:4px;}
+  .palette-item{
+    display:flex;flex-direction:column;align-items:center;gap:4px;
+    width:78px;padding:8px 4px 7px;border:1.5px solid var(--teal);border-radius:8px;
+    background:var(--teal-soft);cursor:grab;user-select:none;touch-action:none;
+  }
+  .palette-item:active{cursor:grabbing;}
+  .palette-item svg{width:38px;height:38px;display:block;}
+  .palette-item .plabel{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--ink);font-weight:600;}
+  .palette-item.dragging{opacity:0.35;}
+
+  .ghost{position:fixed;pointer-events:none;width:38px;height:38px;z-index:50;opacity:0.85;transform:translate(-50%,-50%);}
+
+  .controls-row{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-top:18px;}
+  button.action-btn{
+    font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:13px;
+    border:1.5px solid var(--ink);background:transparent;color:var(--ink);
+    padding:8px 18px;border-radius:4px;cursor:pointer;
+  }
+  button.action-btn:hover{background:var(--ink);color:var(--paper);}
+  button.action-btn.primary{background:var(--ink);color:var(--paper);}
+  button.action-btn.primary:hover{background:var(--teal);border-color:var(--teal);}
+  button.action-btn:disabled{opacity:0.4;cursor:default;}
+  button.action-btn:disabled:hover{background:transparent;color:var(--ink);}
+
+  #resultBanner{display:none;margin-top:16px;border-radius:6px;padding:14px 18px;font-size:14px;line-height:1.5;}
+  #resultBanner.show{display:block;}
+  #resultBanner.ok{border:1.5px solid var(--teal);background:var(--teal-soft);}
+  #resultBanner.bad{border:1.5px solid var(--force);background:#F6E4E1;}
+  #resultBanner b{display:block;font-size:15px;margin-bottom:4px;}
+  #resultBanner ul{margin:6px 0 0;padding-left:18px;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="title-block">
+      <div class="eyebrow">SERIES · Reactions & Stability</div>
+      <h1>Reactions & Stability Playground</h1>
+      <p>A random set of loads is applied to this beam. Drag reactions onto it from the palette below, then press Play to see whether you've fully constrained it — or whether it flies away.</p>
+    </div>
+    <div class="legend">
+      <span><span class="swatch" style="background:var(--force)"></span>applied load</span>
+      <span><span class="swatch" style="background:var(--teal)"></span>your reaction</span>
+    </div>
+  </header>
+
+  <div class="stage">
+    <svg id="stage" viewBox="0 0 1100 340" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="drop-hint">
+      <span id="hintText">Drag a reaction from below onto the beam. Click a placed reaction to remove it.</span>
+      <span id="countText"></span>
+    </div>
+  </div>
+
+  <div class="palette-row">
+    <span class="palette-label">Add reaction:</span>
+    <div class="palette-item" data-type="axial" draggable="false">
+      <svg viewBox="0 0 40 40"><line x1="6" y1="20" x2="30" y2="20" stroke="#1F7A6C" stroke-width="3.4" stroke-linecap="round"/><polygon points="34,20 24,15 24,25" fill="#1F7A6C"/></svg>
+      <span class="plabel">axial</span>
+    </div>
+    <div class="palette-item" data-type="transverse" draggable="false">
+      <svg viewBox="0 0 40 40"><line x1="20" y1="34" x2="20" y2="10" stroke="#1F7A6C" stroke-width="3.4" stroke-linecap="round"/><polygon points="20,6 15,16 25,16" fill="#1F7A6C"/></svg>
+      <span class="plabel">transverse</span>
+    </div>
+    <div class="palette-item" data-type="moment" draggable="false">
+      <svg viewBox="0 0 40 40"><path d="M 30 27 A 13 13 0 1 1 27 10" fill="none" stroke="#1F7A6C" stroke-width="3.2" stroke-linecap="round"/><polygon points="30,6 25,12 34,13" fill="#1F7A6C"/></svg>
+      <span class="plabel">moment</span>
+    </div>
+    <div class="palette-item" data-type="torque" draggable="false">
+      <svg viewBox="0 0 40 40"><path d="M 20 8 Q 27 20 20 32" fill="none" stroke="#1F7A6C" stroke-width="3.2" stroke-linecap="round"/><polygon points="20,36 15,28 24,29" fill="#1F7A6C"/></svg>
+      <span class="plabel">torque</span>
+    </div>
+  </div>
+
+  <div class="controls-row">
+    <button class="action-btn" id="newProblemBtn">New problem</button>
+    <button class="action-btn primary" id="playBtn">▶ Play</button>
+  </div>
+
+  <div id="resultBanner"></div>
+
+</div>
+
+<div id="ghostLayer"></div>
+
+<script>
+/* ---------- Geometry / constants ---------- */
+const NS = "http://www.w3.org/2000/svg";
+const L = 10;              /* beam length, m (abstract) */
+const X0 = 130, SCALE = 84; /* px per m */
+const CY = 160;             /* beam centerline, undeformed */
+const BEAM_HH = 16;
+function xPix(x){ return X0 + x*SCALE; }
+function xOf(px){ return (px-X0)/SCALE; }
+
+function el(tag, attrs, parent){
+  const e = document.createElementNS(NS, tag);
+  for(const k in attrs) if(attrs[k]!==null && attrs[k]!==undefined) e.setAttribute(k, attrs[k]);
+  if(parent) parent.appendChild(e);
+  return e;
+}
+function text(x,y,str,attrs,parent){
+  const t = el('text', Object.assign({x,y,'font-family':"IBM Plex Mono, monospace",'font-size':12.5,fill:'var(--ink)'}, attrs), parent);
+  t.textContent = str;
+  return t;
+}
+
+/* ---------- Data model ----------
+   Each load/reaction: {type: 'axial'|'transverse'|'moment'|'torque', x, val}.
+   val is a SIGNED magnitude: +axial points +x, +transverse points +y (up),
+   +moment is CCW (sagging-consistent), +torque follows the right-hand rule
+   about +x. Loads are randomly generated and fixed; reactions are added by
+   the student and solved for at Play time. */
+let loads = [];
+let reactions = [];
+
+const TYPE_OPTIONS = ['axial','transverse','moment','torque'];
+function randVal(lo, hi, step){
+  const steps = Math.round((hi-lo)/step);
+  const mag = lo + step*Math.floor(Math.random()*(steps+1));
+  return (Math.random()<0.5 ? -1 : 1) * mag;
+}
+function randomizeLoads(){
+  loads = [];
+  const n = 1 + Math.floor(Math.random()*3); /* 1..3 loads */
+  const usedX = [];
+  for(let i=0;i<n;i++){
+    const type = TYPE_OPTIONS[Math.floor(Math.random()*TYPE_OPTIONS.length)];
+    let x;
+    do { x = 1 + Math.round(Math.random()*8); } while(usedX.includes(x));
+    usedX.push(x);
+    const val = (type==='moment'||type==='torque') ? randVal(100,1500,50) : randVal(100,800,50);
+    loads.push({type, x, val});
+  }
+  reactions = [];
+}
+
+/* ---------- Glyph drawing ----------
+   Same conventions established in the earlier files: transverse forces are
+   plain vertical arrows, moment is a true in-plane semicircular arc (its
+   rotation axis points out of the page), torque is a bowed near-vertical
+   stroke (its rotation axis runs along the beam, so a real arc would be
+   viewed edge-on — the bow is the same projection trick used before). */
+function hArrow(parent, x1, y, x2, color, width, headSize=8){
+  const dir = x2>x1 ? 1 : -1;
+  el('line',{x1,y1:y,x2,y2:y,stroke:color,'stroke-width':width,'stroke-linecap':'round'},parent);
+  const pts = `${x2},${y} ${x2-dir*headSize},${y-headSize*0.62} ${x2-dir*headSize},${y+headSize*0.62}`;
+  el('polygon',{points:pts,fill:color},parent);
+}
+function vArrowHead(x,y,dir,size,color,parent){
+  const pts = `${x},${y} ${x-size*0.62},${y-dir*size} ${x+size*0.62},${y-dir*size}`;
+  el('polygon', {points:pts, fill:color}, parent);
+}
+function vArrow(parent, x, y1, y2, color, width, headSize=8){
+  const dir = y2>y1 ? 1 : -1;
+  el('line',{x1:x,y1,x2:x,y2,stroke:color,'stroke-width':width,'stroke-linecap':'round'},parent);
+  vArrowHead(x,y2,dir,headSize,color,parent);
+}
+function momentArc(parent, cx, cy0, r, ccw, color, sw=3){
+  const spanStart=15, spanEnd=345, steps=40;
+  let d='';
+  for(let i=0;i<=steps;i++){
+    const t=i/steps;
+    const ang = ccw ? spanEnd - t*(spanEnd-spanStart) : spanStart + t*(spanEnd-spanStart);
+    const rad = ang*Math.PI/180;
+    const x=cx+r*Math.cos(rad), y=cy0+r*Math.sin(rad);
+    d += (i===0?'M ':'L ')+x.toFixed(2)+' '+y.toFixed(2)+' ';
+  }
+  el('path',{d,fill:'none',stroke:color,'stroke-width':sw,'stroke-linecap':'round'},parent);
+  const tipAng = ccw?spanStart:spanEnd;
+  const rad = tipAng*Math.PI/180;
+  const tx=cx+r*Math.cos(rad), ty=cy0+r*Math.sin(rad);
+  const sweepSign = ccw?-1:1;
+  const dx=-r*Math.sin(rad)*sweepSign, dy=r*Math.cos(rad)*sweepSign;
+  const tl=Math.hypot(dx,dy)||1, tdx=dx/tl, tdy=dy/tl;
+  const size=8, nx=-tdy, ny=tdx;
+  const backX=tx-tdx*size, backY=ty-tdy*size;
+  el('polygon',{points:`${tx.toFixed(2)},${ty.toFixed(2)} ${(backX+nx*size*0.55).toFixed(2)},${(backY+ny*size*0.55).toFixed(2)} ${(backX-nx*size*0.55).toFixed(2)},${(backY-ny*size*0.55).toFixed(2)}`,fill:color},parent);
+}
+function torqueGlyph(parent, x, yTop, yBot, ccw, color, sw=3){
+  const bow=9, midY=(yTop+yBot)/2;
+  const startY = ccw ? yTop : yBot, endY = ccw ? yBot : yTop;
+  const d = `M ${x} ${startY} Q ${(x+bow).toFixed(2)} ${midY.toFixed(2)} ${x} ${endY}`;
+  el('path',{d,fill:'none',stroke:color,'stroke-width':sw,'stroke-linecap':'round'},parent);
+  const dx=-bow, dy=endY-midY, tl=Math.hypot(dx,dy)||1, ux=dx/tl, uy=dy/tl;
+  const size=8, nx=-uy, ny=ux;
+  const backX=x-ux*size, backY=endY-uy*size;
+  el('polygon',{points:`${x},${endY} ${(backX+nx*size*0.55).toFixed(2)},${(backY+ny*size*0.55).toFixed(2)} ${(backX-nx*size*0.55).toFixed(2)},${(backY-ny*size*0.55).toFixed(2)}`,fill:color},parent);
+}
+
+/* Draw one load or reaction glyph. isReaction picks the color and (for
+   removal) tags the element with a data attribute + click handler. */
+function drawGlyph(parent, item, isReaction, cy, onRemove, dx){
+  const color = isReaction ? 'var(--teal)' : 'var(--force)';
+  const px = xPix(item.x) + (dx||0);
+  const g = el('g',{style: isReaction?'cursor:pointer':''}, parent);
+  if(isReaction) g.addEventListener('click', ()=>onRemove(item));
+
+  if(item.type==='axial'){
+    const len=34, dir = item.val>=0?1:-1;
+    hArrow(g, px, cy, px+dir*len, color, 3.2, 9);
+    text(px, cy-14, `${Math.abs(item.val)} N`, {'text-anchor':'middle',fill:color,'font-weight':700}, g);
+  } else if(item.type==='transverse'){
+    const len=34, dir = item.val>=0?-1:1; /* val>0 = points up = -y */
+    const y1 = cy, y2 = cy+dir*len;
+    vArrow(g, px, y1, y2, color, 3.2, 9);
+    text(px, (dir>0? y2-8 : y2+18), `${Math.abs(item.val)} N`, {'text-anchor':'middle',fill:color,'font-weight':700}, g);
+  } else if(item.type==='moment'){
+    const r=17, cyo = cy-32;
+    momentArc(g, px, cyo, r, item.val>=0, color, 2.8);
+    text(px, cyo-r-9, `${Math.abs(item.val)} N·m`, {'text-anchor':'middle',fill:color,'font-weight':700}, g);
+  } else if(item.type==='torque'){
+    const yTop = cy-34, yBot = cy+34;
+    torqueGlyph(g, px+26, yTop, yBot, item.val>=0, color, 2.8);
+    text(px+26, yTop-9, `${Math.abs(item.val)} N·m`, {'text-anchor':'middle',fill:color,'font-weight':700}, g);
+  }
+  if(isReaction){
+    el('circle',{cx:px,cy:cy+BEAM_HH+2,r:2.2,fill:color},g);
+  }
+  return g;
+}
+
+/* ---------- Stability + solve math ----------
+   For each of the three independent channels, check whether the placed
+   reactions can balance the applied loads, and if so solve for their
+   magnitudes (least-squares / minimum-norm when redundant). Verified
+   against hand-worked cases (simply-supported, single-reaction,
+   propped-cantilever-style, degenerate/coincident placements) before
+   wiring into the UI. */
+function crossVal(a,b){ return a[0]*b[1]-a[1]*b[0]; }
+function solveChannel2(columns, b){
+  const n = columns.length;
+  if(n===0) return { stable: Math.abs(b[0])<1e-6 && Math.abs(b[1])<1e-6, r: [] };
+  let m00=0,m01=0,m11=0;
+  columns.forEach(c=>{ m00+=c[0]*c[0]; m01+=c[0]*c[1]; m11+=c[1]*c[1]; });
+  const det = m00*m11 - m01*m01;
+  if(Math.abs(det) > 1e-7){
+    const inv00=m11/det, inv01=-m01/det, inv11=m00/det;
+    const y0 = inv00*b[0] + inv01*b[1], y1 = inv01*b[0] + inv11*b[1];
+    return { stable:true, r: columns.map(c=> c[0]*y0 + c[1]*y1) };
+  }
+  let refIdx=0, refNorm=-1;
+  columns.forEach((c,i)=>{ const nrm=c[0]*c[0]+c[1]*c[1]; if(nrm>refNorm){refNorm=nrm;refIdx=i;} });
+  if(refNorm<1e-12) return { stable: Math.abs(b[0])<1e-6 && Math.abs(b[1])<1e-6, r: columns.map(()=>0) };
+  const ref = columns[refIdx];
+  const cr = crossVal(ref, b);
+  const stable = Math.abs(cr) < 1e-6 * Math.max(1, Math.hypot(ref[0],ref[1])*Math.hypot(b[0],b[1]));
+  if(!stable) return { stable:false, r:null };
+  const refDot = ref[0]*ref[0]+ref[1]*ref[1];
+  const k = (ref[0]*b[0]+ref[1]*b[1])/refDot;
+  const scalars = columns.map(c=> (c[0]*ref[0]+c[1]*ref[1])/refDot );
+  const sumSq = scalars.reduce((s,v)=>s+v*v,0);
+  return { stable:true, r: scalars.map(s => sumSq>1e-9 ? k*s/sumSq : 0) };
+}
+function solveChannel1(count, netApplied){
+  if(count===0) return { stable: Math.abs(netApplied)<1e-6, r: [] };
+  const each = -netApplied/count;
+  return { stable:true, r: Array(count).fill(each) };
+}
+
+/* Solve every channel given the current loads + placed reactions. Returns
+   {axial:{stable}, torque:{stable}, bending:{stable}, solved: reactions
+   array with .val filled in (only meaningful where stable)}. */
+function solveAll(){
+  const solved = reactions.map(r=>Object.assign({}, r));
+
+  const axialR = solved.filter(r=>r.type==='axial');
+  const axialLoadSum = loads.filter(l=>l.type==='axial').reduce((s,l)=>s+l.val,0);
+  const axialRes = solveChannel1(axialR.length, axialLoadSum);
+  axialR.forEach((r,i)=> r.val = axialRes.r[i]);
+
+  const torqueR = solved.filter(r=>r.type==='torque');
+  const torqueLoadSum = loads.filter(l=>l.type==='torque').reduce((s,l)=>s+l.val,0);
+  const torqueRes = solveChannel1(torqueR.length, torqueLoadSum);
+  torqueR.forEach((r,i)=> r.val = torqueRes.r[i]);
+
+  const bendR = solved.filter(r=>r.type==='transverse'||r.type==='moment');
+  const columns = bendR.map(r=> r.type==='transverse' ? [1, r.x] : [0, 1]);
+  let fyLoad=0, mLoad=0;
+  loads.forEach(l=>{
+    if(l.type==='transverse'){ fyLoad += l.val; mLoad += l.val*l.x; }
+    else if(l.type==='moment'){ mLoad += l.val; }
+  });
+  const bendRes = solveChannel2(columns, [-fyLoad, -mLoad]);
+  if(bendRes.stable) bendR.forEach((r,i)=> r.val = bendRes.r[i]);
+
+  return {
+    axial: {stable: axialRes.stable},
+    torque: {stable: torqueRes.stable},
+    bending: {stable: bendRes.stable},
+    solved
+  };
+}
+
+/* ---------- Deformation shape ----------
+   Same idea as the section-cut explorers: compute the internal action
+   along x (N for axial, M for bending, T for torque), then integrate it to
+   get a displacement shape, anchored so it doesn't move at the reaction
+   points (least-squares if there's more than one). Amplitudes are then
+   normalized to a fixed pixel size — there's no real stiffness given, so
+   only the *shape* is meaningful, not the magnitude. */
+const N_SAMPLES = 60;
+function sampleXs(){ const xs=[]; for(let i=0;i<=N_SAMPLES;i++) xs.push(L*i/N_SAMPLES); return xs; }
+
+function internalAxial(items, xs){
+  return xs.map(x => items.filter(it=>it.type==='axial' && it.x<x).reduce((s,it)=>s+it.val,0));
+}
+function internalBendingMoment(items, xs){
+  return xs.map(x => {
+    let m=0;
+    items.forEach(it=>{
+      if(it.x>=x) return;
+      if(it.type==='transverse') m += it.val*(x-it.x);
+      else if(it.type==='moment') m += it.val;
+    });
+    return m;
+  });
+}
+function internalTorque(items, xs){
+  return xs.map(x => items.filter(it=>it.type==='torque' && it.x<x).reduce((s,it)=>s+it.val,0));
+}
+function cumTrapz(xs, ys){
+  const out=[0];
+  for(let i=1;i<xs.length;i++){
+    out.push(out[i-1] + (ys[i]+ys[i-1])/2*(xs[i]-xs[i-1]));
+  }
+  return out;
+}
+/* Fit the free constant(s) in a 1-integration shape (axial/torque) so the
+   weighted-least-squares displacement at the anchor points is zero. */
+function anchorConstant1(xs, raw, anchorXs){
+  if(anchorXs.length===0) return 0;
+  const vals = anchorXs.map(ax=>{
+    let lo=0; while(lo<xs.length-1 && xs[lo+1]<ax) lo++;
+    const t = (ax-xs[lo])/((xs[lo+1]-xs[lo])||1);
+    return raw[lo] + (raw[Math.min(lo+1,raw.length-1)]-raw[lo])*t;
+  });
+  return -vals.reduce((s,v)=>s+v,0)/vals.length;
+}
+/* Fit v0, slope0 for the bending shape via least squares against zero
+   deflection at transverse-reaction points and zero slope at moment-
+   reaction points. */
+function anchorConstants2(xs, rawV, rawSlope, deflectAnchors, slopeAnchors){
+  function sampleAt(arr, ax){
+    let lo=0; while(lo<xs.length-1 && xs[lo+1]<ax) lo++;
+    const t = (ax-xs[lo])/((xs[lo+1]-xs[lo])||1);
+    return arr[lo] + (arr[Math.min(lo+1,arr.length-1)]-arr[lo])*t;
+  }
+  const rows = [];
+  deflectAnchors.forEach(ax=> rows.push({a:[1,ax], b:-sampleAt(rawV,ax)}) );
+  slopeAnchors.forEach(ax=> rows.push({a:[0,1], b:-sampleAt(rawSlope,ax)}) );
+  if(rows.length===0) return [0,0];
+  let m00=0,m01=0,m11=0,c0=0,c1=0;
+  rows.forEach(({a,b})=>{ m00+=a[0]*a[0]; m01+=a[0]*a[1]; m11+=a[1]*a[1]; c0+=a[0]*b; c1+=a[1]*b; });
+  const det = m00*m11-m01*m01;
+  if(Math.abs(det)>1e-9){
+    return [ (m11*c0-m01*c1)/det, (m00*c1-m01*c0)/det ];
+  }
+  /* degenerate (e.g. only slope anchors, or all deflect anchors at same x) */
+  if(m11>1e-9) return [0, c1/m11];
+  if(m00>1e-9) return [c0/m00, 0];
+  return [0,0];
+}
+function normalize(arr, target){
+  const maxAbs = Math.max(...arr.map(Math.abs), 1e-9);
+  const s = target/maxAbs;
+  return arr.map(v=>v*s);
+}
+/* Interpolate a sampled array (defined over xs) at an arbitrary beam-x. */
+function sampleAt(xs, arr, xVal){
+  let lo=0; while(lo<xs.length-1 && xs[lo+1]<xVal) lo++;
+  const t = (xVal-xs[lo])/((xs[lo+1]-xs[lo])||1);
+  return arr[lo] + (arr[Math.min(lo+1,arr.length-1)]-arr[lo])*t;
+}
+
+/* Build the full deformation profile for the current (solved) state.
+   Returns {xs, axialU, bendV, twist} each an array over xs, normalized to
+   a fixed pixel amplitude, PLUS which channels actually have any load (so
+   a channel with nothing applied doesn't animate for no reason). */
+function computeDeformation(result){
+  const xs = sampleXs();
+  const items = loads.concat(result.solved);
+
+  const axialLoaded = loads.some(l=>l.type==='axial');
+  const N = internalAxial(items, xs);
+  const rawU = cumTrapz(xs, N);
+  const axialAnchors = result.solved.filter(r=>r.type==='axial').map(r=>r.x);
+  const u0 = anchorConstant1(xs, rawU, axialAnchors);
+  const axialU = axialLoaded ? normalize(rawU.map(v=>v+u0), 22) : xs.map(()=>0);
+
+  const torqueLoaded = loads.some(l=>l.type==='torque');
+  const T = internalTorque(items, xs);
+  const rawTwist = cumTrapz(xs, T);
+  const torqueAnchors = result.solved.filter(r=>r.type==='torque').map(r=>r.x);
+  const t0 = anchorConstant1(xs, rawTwist, torqueAnchors);
+  const twist = torqueLoaded ? normalize(rawTwist.map(v=>v+t0), 0.9) : xs.map(()=>0);
+
+  const bendLoaded = loads.some(l=>l.type==='transverse'||l.type==='moment');
+  const M = internalBendingMoment(items, xs);
+  const rawSlope = cumTrapz(xs, M);
+  const rawV = cumTrapz(xs, rawSlope);
+  const deflectAnchors = result.solved.filter(r=>r.type==='transverse').map(r=>r.x);
+  const slopeAnchors = result.solved.filter(r=>r.type==='moment').map(r=>r.x);
+  const [v0, s0] = anchorConstants2(xs, rawV, rawSlope, deflectAnchors, slopeAnchors);
+  const bendV = bendLoaded ? normalize(rawV.map((v,i)=>v + v0 + s0*xs[i]), 26) : xs.map(()=>0);
+
+  return { xs, axialU, bendV, twist };
+}
+
+/* ---------- Scene rendering ---------- */
+const svgStage = document.getElementById('stage');
+
+function easeOutBack(t){
+  const c1=1.70158, c3=c1+1;
+  return 1 + c3*Math.pow(t-1,3) + c1*Math.pow(t-1,2);
+}
+function easeOutCubic(t){ return 1-Math.pow(1-t,3); }
+
+/* Draws the beam scene. deform: {xs,axialU,bendV,twist} local shape (already
+   solved). frac: {axial,bend,torque} each in [0,1] settle progress for the
+   STABLE channels (0 = undeformed). escape: {dx,dy,rot,twistSpin} rigid-body
+   motion for UNSTABLE channels, unbounded. */
+function renderScene(deform, frac, escape){
+  svgStage.innerHTML = '';
+  const root = el('g', {transform:`translate(${escape.dx},${escape.dy}) rotate(${escape.rot} ${xPix(L/2)} ${CY})`}, svgStage);
+
+  const xs = deform.xs;
+  const topPts = [], botPts = [];
+  for(let i=0;i<xs.length;i++){
+    const ax = xPix(xs[i]) + deform.axialU[i]*frac.axial;
+    const vy = deform.bendV[i]*frac.bend;
+    topPts.push(`${ax.toFixed(1)},${(CY-BEAM_HH+vy).toFixed(1)}`);
+    botPts.push(`${ax.toFixed(1)},${(CY+BEAM_HH+vy).toFixed(1)}`);
+  }
+  const pathD = `M ${topPts.join(' L ')} L ${botPts.reverse().join(' L ')} Z`;
+  el('path',{d:pathD, fill:'#F6F7F4', stroke:'var(--ink)','stroke-width':1.8}, root);
+
+  /* twist tick marks along the length */
+  const twistTicks = 9;
+  for(let i=0;i<=twistTicks;i++){
+    const xt = L*i/twistTicks;
+    let lo=0; while(lo<xs.length-1 && xs[lo+1]<xt) lo++;
+    const localTwist = deform.twist[lo]*frac.torque + escape.twistSpin;
+    const ax = xPix(xt) + deform.axialU[lo]*frac.axial;
+    const vy = deform.bendV[lo]*frac.bend;
+    const halfLen = BEAM_HH*0.82;
+    const dx = Math.sin(localTwist)*halfLen, dy = Math.cos(localTwist)*halfLen;
+    el('line',{x1:ax-dx,y1:CY+vy-dy,x2:ax+dx,y2:CY+vy+dy,stroke:'var(--steel)','stroke-width':1.4},root);
+  }
+
+  /* node baseline for reference */
+  el('line',{x1:xPix(0)-10,y1:CY+BEAM_HH+40,x2:xPix(L)+10,y2:CY+BEAM_HH+40,stroke:'var(--steel-light)','stroke-width':1,'stroke-dasharray':'3,4'},root);
+
+  loads.forEach(l=> drawGlyph(root, l, false, CY, null, sampleAt(xs, deform.axialU, l.x)*frac.axial));
+  reactions.forEach(r=> drawGlyph(root, r, true, CY, removeReaction, sampleAt(xs, deform.axialU, r.x)*frac.axial));
+}
+
+function renderStatic(){
+  const deform = { xs: sampleXs(), axialU: sampleXs().map(()=>0), bendV: sampleXs().map(()=>0), twist: sampleXs().map(()=>0) };
+  renderScene(deform, {axial:0,bend:0,torque:0}, {dx:0,dy:0,rot:0,twistSpin:0});
+  document.getElementById('countText').textContent = `${reactions.length} reaction${reactions.length===1?'':'s'} placed`;
+}
+
+function removeReaction(item){
+  reactions = reactions.filter(r=>r!==item);
+  renderStatic();
+}
+
+/* ---------- Drag-and-drop from the palette ----------
+   Custom pointer-based dragging (rather than HTML5 DnD) since the drop
+   target is an SVG element and we want a live ghost that tracks touch too. */
+const ghostLayer = document.getElementById('ghostLayer');
+let dragType = null, ghostEl = null;
+
+function paletteSvgFor(type){
+  return document.querySelector(`.palette-item[data-type="${type}"] svg`).cloneNode(true);
+}
+function startDrag(type, sourceEl, evt){
+  dragType = type;
+  sourceEl.classList.add('dragging');
+  ghostEl = paletteSvgFor(type);
+  ghostEl.classList.add('ghost');
+  document.body.appendChild(ghostEl);
+  moveGhost(evt);
+  document.getElementById('hintText').textContent = 'Drop on the beam to place the reaction, or release elsewhere to cancel.';
+}
+function moveGhost(evt){
+  const p = ('touches' in evt && evt.touches[0]) ? evt.touches[0] : evt;
+  if(ghostEl){ ghostEl.style.left = p.clientX+'px'; ghostEl.style.top = p.clientY+'px'; }
+}
+function endDrag(evt, sourceEl){
+  const p = ('changedTouches' in evt && evt.changedTouches[0]) ? evt.changedTouches[0] : evt;
+  const rect = svgStage.getBoundingClientRect();
+  const vb = svgStage.viewBox.baseVal;
+  if(p.clientX>=rect.left && p.clientX<=rect.right && p.clientY>=rect.top && p.clientY<=rect.bottom){
+    const px = vb.x + (p.clientX-rect.left)/rect.width*vb.width;
+    let x = Math.min(L, Math.max(0, xOf(px)));
+    x = Math.round(x*5)/5; /* snap to 0.2 m for a stable click target */
+    reactions.push({type:dragType, x, val:0});
+    renderStatic();
+  }
+  if(sourceEl) sourceEl.classList.remove('dragging');
+  if(ghostEl){ ghostEl.remove(); ghostEl=null; }
+  dragType = null;
+  document.getElementById('hintText').textContent = 'Drag a reaction from below onto the beam. Click a placed reaction to remove it.';
+}
+document.querySelectorAll('.palette-item').forEach(itemEl=>{
+  const type = itemEl.dataset.type;
+  itemEl.addEventListener('pointerdown', evt=>{
+    evt.preventDefault();
+    startDrag(type, itemEl, evt);
+    const onMove = e=> moveGhost(e);
+    const onUp = e=>{
+      endDrag(e, itemEl);
+      document.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerup', onUp);
+    };
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onUp);
+  });
+});
+
+/* ---------- Play ---------- */
+const playBtn = document.getElementById('playBtn');
+const newProblemBtn = document.getElementById('newProblemBtn');
+const banner = document.getElementById('resultBanner');
+let rafId = null;
+
+function channelLoadSum(type){ return loads.filter(l=>l.type===type).reduce((s,l)=>s+l.val,0); }
+function bendingNet(){
+  let fy=0, m=0;
+  loads.forEach(l=>{
+    if(l.type==='transverse'){ fy+=l.val; m+=l.val*l.x; }
+    else if(l.type==='moment') m+=l.val;
+  });
+  return {fy, m};
+}
+
+function describeResult(result){
+  const bits = [];
+  let anyBad = false;
+  if(!result.axial.stable){ anyBad=true; bits.push('Axial: unresisted — the beam slides off along its own axis.'); }
+  else if(loads.some(l=>l.type==='axial')) bits.push('Axial: balanced — the beam compresses or stretches slightly.');
+  if(!result.bending.stable){ anyBad=true; bits.push('Transverse/moment: unresisted — the beam translates and/or tumbles away.'); }
+  else if(loads.some(l=>l.type==='transverse'||l.type==='moment')) bits.push('Transverse/moment: balanced — the beam bends.');
+  if(!result.torque.stable){ anyBad=true; bits.push('Torque: unresisted — the beam spins about its own axis.'); }
+  else if(loads.some(l=>l.type==='torque')) bits.push('Torque: balanced — the beam twists.');
+  if(bits.length===0) bits.push('No loads act in a channel that has anything to show — try "New problem."');
+  return {anyBad, bits};
+}
+
+function play(){
+  if(rafId) cancelAnimationFrame(rafId);
+  const result = solveAll();
+  result.solved.forEach((s,i)=> { reactions[i].val = s.val; });
+  const deform = computeDeformation(result);
+  const {anyBad, bits} = describeResult(result);
+  banner.className = 'show ' + (anyBad?'bad':'ok');
+  banner.innerHTML = `<b>${anyBad?'Unstable':'Stable'}</b><ul>${bits.map(b=>`<li>${b}</li>`).join('')}</ul>`;
+
+  const {fy, m} = bendingNet();
+  const axialNet = channelLoadSum('axial');
+  const torqueNet = channelLoadSum('torque');
+  const dirDx = axialNet>=0?1:-1, dirDy = fy>=0?-1:1, dirRot = m>=0?-1:1, dirSpin = torqueNet>=0?1:-1;
+  const ESCAPE_ACCEL = 90, ROT_ACCEL = 55, SPIN_RATE = 3.2;
+
+  const start = performance.now();
+  playBtn.disabled = true; newProblemBtn.disabled = true;
+  function frame(now){
+    const t = (now-start)/1000;
+    const settle = Math.min(1, t/1.1);
+    const frac = {
+      axial: result.axial.stable ? easeOutBack(settle) : 0,
+      bend: result.bending.stable ? easeOutBack(settle) : 0,
+      torque: result.torque.stable ? easeOutCubic(settle) : 0
+    };
+    const escape = {
+      dx: result.axial.stable ? 0 : dirDx*ESCAPE_ACCEL*t*t,
+      dy: result.bending.stable ? 0 : dirDy*ESCAPE_ACCEL*t*t,
+      rot: result.bending.stable ? 0 : dirRot*ROT_ACCEL*t*t,
+      twistSpin: result.torque.stable ? 0 : dirSpin*SPIN_RATE*t
+    };
+    renderScene(deform, frac, escape);
+
+    const allStableSettled = result.axial.stable && result.bending.stable && result.torque.stable && settle>=1;
+    const anyUnstableFlewAway = (!result.axial.stable && Math.abs(escape.dx)>900) || (!result.bending.stable && Math.abs(escape.dy)>500);
+    if(allStableSettled || anyUnstableFlewAway || t>6){
+      playBtn.disabled = false; newProblemBtn.disabled = false;
+      rafId = null;
+      return;
+    }
+    rafId = requestAnimationFrame(frame);
+  }
+  rafId = requestAnimationFrame(frame);
+}
+
+playBtn.addEventListener('click', play);
+newProblemBtn.addEventListener('click', ()=>{
+  if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
+  playBtn.disabled=false; newProblemBtn.disabled=false;
+  banner.className=''; banner.innerHTML='';
+  randomizeLoads();
+  renderStatic();
+});
+
+/* ---------- Initialize ---------- */
+randomizeLoads();
+renderStatic();
+</script>
+</body>
+</html>
