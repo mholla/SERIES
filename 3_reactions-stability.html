@@ -191,7 +191,11 @@ function reactionLabels(){
 }
 function channelOf(type){ return type==='axial' ? 'axial' : type==='torque' ? 'torque' : 'bending'; }
 
-const TYPE_OPTIONS = ['axial','transverse','moment','torque'];
+/* Mixing torque with transverse/moment in the same problem made scenes
+   needlessly hard to read (two unrelated failure modes competing for
+   attention), so each generated problem draws from just ONE of these two
+   groups. Axial is compatible with either, so it's included in both. */
+const TYPE_GROUPS = [ ['axial','torque'], ['axial','transverse','moment'] ];
 function randVal(lo, hi, step){
   const steps = Math.round((hi-lo)/step);
   const mag = lo + step*Math.floor(Math.random()*(steps+1));
@@ -199,10 +203,11 @@ function randVal(lo, hi, step){
 }
 function randomizeLoads(){
   loads = [];
+  const typeOptions = TYPE_GROUPS[Math.floor(Math.random()*TYPE_GROUPS.length)];
   const n = 1 + Math.floor(Math.random()*3); /* 1..3 loads */
   const usedX = [];
   for(let i=0;i<n;i++){
-    const type = TYPE_OPTIONS[Math.floor(Math.random()*TYPE_OPTIONS.length)];
+    const type = typeOptions[Math.floor(Math.random()*typeOptions.length)];
     let x;
     do { x = 1 + Math.round(Math.random()*8); } while(usedX.includes(x));
     usedX.push(x);
@@ -616,6 +621,26 @@ function renderScene(deform, frac, escape){
   }
   el('path',{d:'M '+topFiber.join(' L '), fill:'none', stroke:'var(--steel)','stroke-width':1.4}, root);
   el('path',{d:'M '+botFiber.join(' L '), fill:'none', stroke:'var(--steel)','stroke-width':1.4}, root);
+
+  /* Sparse radial "spoke" ticks on top of the longitudinal lines. The
+     fiber lines alone encode angle only as height-above-centerline, which
+     for a uniform free spin (same angle at every x, no gradient to trace)
+     reads as the beam pulsing/breathing rather than turning — there's no
+     diagonal motion for the eye to follow. A rotating spoke fixes that:
+     for a free spin every spoke turns together like a pinwheel, which
+     unambiguously reads as rotation; for a developing elastic twist the
+     spokes' progressively larger tilt along x reinforces the same gradient
+     the fiber lines already show. */
+  const twistTicks = 9;
+  for(let i=0;i<=twistTicks;i++){
+    const xt = L*i/twistTicks;
+    let lo=0; while(lo<xs.length-1 && xs[lo+1]<xt) lo++;
+    const localTwist = deform.twist[lo]*frac.torque + escape.twistSpin;
+    const ax = xPix(xt) + deform.axialU[lo]*frac.axial;
+    const vy = deform.bendV[lo]*frac.bend;
+    const dxk = Math.sin(localTwist)*halfLen, dyk = Math.cos(localTwist)*halfLen;
+    el('line',{x1:ax-dxk,y1:CY+vy-dyk,x2:ax+dxk,y2:CY+vy+dyk,stroke:'var(--steel)','stroke-width':1.4},root);
+  }
 
   /* node baseline for reference */
   el('line',{x1:xPix(0)-10,y1:CY+BEAM_HH+40,x2:xPix(L)+10,y2:CY+BEAM_HH+40,stroke:'var(--steel-light)','stroke-width':1,'stroke-dasharray':'3,4'},root);
