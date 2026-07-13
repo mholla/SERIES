@@ -597,50 +597,32 @@ function renderScene(deform, frac, escape){
   const pathD = `M ${topPts.join(' L ')} L ${botPts.reverse().join(' L ')} Z`;
   el('path',{d:pathD, fill:'#F6F7F4', stroke:'var(--ink)','stroke-width':1.8}, root);
 
-  /* Longitudinal fiber lines tracing the beam's top and bottom surface
-     along its FULL length. A perpendicular tick mark only shows rotation
-     at one cross-section at a time; a line running the whole length shows
-     how that rotation has propagated along the beam (or, for a free spin,
-     that it hasn't propagated at all — every point rotates together) —
-     the same "twisted ribbon" idea as a barber pole. At zero twist each
-     fiber sits exactly on the beam's drawn top/bottom edge; as local twist
-     approaches 90 degrees they sweep in toward the centerline (viewed
-     edge-on, top and bottom appear to coincide), then on past it. */
+  /* Two longitudinal lines tracing a point on the beam's FRONT (visible)
+     surface — NOT top-vs-bottom mirrored, which made two lines move in
+     opposite directions (pinching in and out) and read as the beam
+     breathing rather than turning. Using sin() instead of cos() means
+     they sit flat on the centerline at zero twist, and BOTH shift the
+     same way together as twist grows — for a developing elastic twist
+     that's an initially-flat line angling diagonally across the length
+     (a barber-pole stripe); for a free, ungraded spin (same angle at
+     every x) both lines translate up, then down, together in lockstep,
+     which reads unambiguously as the whole cross-section turning. */
   const fiberSeg = 48;
   const halfLen = BEAM_HH*0.82;
-  const topFiber = [], botFiber = [];
+  const gap = halfLen*0.32;
+  const lineA = [], lineB = [];
   for(let i=0;i<=fiberSeg;i++){
     const xt = L*i/fiberSeg;
     let lo=0; while(lo<xs.length-1 && xs[lo+1]<xt) lo++;
     const localTwist = deform.twist[lo]*frac.torque + escape.twistSpin;
     const ax = xPix(xt) + deform.axialU[lo]*frac.axial;
     const vy = deform.bendV[lo]*frac.bend;
-    const off = Math.cos(localTwist)*halfLen;
-    topFiber.push(`${ax.toFixed(1)},${(CY+vy-off).toFixed(1)}`);
-    botFiber.push(`${ax.toFixed(1)},${(CY+vy+off).toFixed(1)}`);
+    const off = Math.sin(localTwist)*halfLen;
+    lineA.push(`${ax.toFixed(1)},${(CY+vy+off-gap).toFixed(1)}`);
+    lineB.push(`${ax.toFixed(1)},${(CY+vy+off+gap).toFixed(1)}`);
   }
-  el('path',{d:'M '+topFiber.join(' L '), fill:'none', stroke:'var(--steel)','stroke-width':1.4}, root);
-  el('path',{d:'M '+botFiber.join(' L '), fill:'none', stroke:'var(--steel)','stroke-width':1.4}, root);
-
-  /* Sparse radial "spoke" ticks on top of the longitudinal lines. The
-     fiber lines alone encode angle only as height-above-centerline, which
-     for a uniform free spin (same angle at every x, no gradient to trace)
-     reads as the beam pulsing/breathing rather than turning — there's no
-     diagonal motion for the eye to follow. A rotating spoke fixes that:
-     for a free spin every spoke turns together like a pinwheel, which
-     unambiguously reads as rotation; for a developing elastic twist the
-     spokes' progressively larger tilt along x reinforces the same gradient
-     the fiber lines already show. */
-  const twistTicks = 9;
-  for(let i=0;i<=twistTicks;i++){
-    const xt = L*i/twistTicks;
-    let lo=0; while(lo<xs.length-1 && xs[lo+1]<xt) lo++;
-    const localTwist = deform.twist[lo]*frac.torque + escape.twistSpin;
-    const ax = xPix(xt) + deform.axialU[lo]*frac.axial;
-    const vy = deform.bendV[lo]*frac.bend;
-    const dxk = Math.sin(localTwist)*halfLen, dyk = Math.cos(localTwist)*halfLen;
-    el('line',{x1:ax-dxk,y1:CY+vy-dyk,x2:ax+dxk,y2:CY+vy+dyk,stroke:'var(--steel)','stroke-width':1.4},root);
-  }
+  el('path',{d:'M '+lineA.join(' L '), fill:'none', stroke:'var(--steel)','stroke-width':1.4}, root);
+  el('path',{d:'M '+lineB.join(' L '), fill:'none', stroke:'var(--steel)','stroke-width':1.4}, root);
 
   /* node baseline for reference */
   el('line',{x1:xPix(0)-10,y1:CY+BEAM_HH+40,x2:xPix(L)+10,y2:CY+BEAM_HH+40,stroke:'var(--steel-light)','stroke-width':1,'stroke-dasharray':'3,4'},root);
