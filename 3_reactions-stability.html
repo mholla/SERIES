@@ -662,35 +662,43 @@ function renderScene(deform, frac, escape, animating){
   const pathD = `M ${topPts.join(' L ')} L ${botPts.reverse().join(' L ')} Z`;
   el('path',{d:pathD, fill:'#F6F7F4', stroke:'var(--ink)','stroke-width':1.8}, root);
 
-  /* Two longitudinal lines tracing a point on the beam's FRONT (visible)
-     surface — NOT top-vs-bottom mirrored, which made two lines move in
-     opposite directions (pinching in and out) and read as the beam
-     breathing rather than turning. Using sin() instead of cos() means
-     they sit flat on the centerline at zero twist, and BOTH shift the
-     same way together as twist grows — for a developing elastic twist
-     that's an initially-flat line angling diagonally across the length
-     (a barber-pole stripe); for a free, ungraded spin (same angle at
-     every x) both lines translate up, then down, together in lockstep,
-     which reads unambiguously as the whole cross-section turning. Only
-     drawn while actually animating (Play) — at rest they'd just sit as a
-     flat, static, uninformative line down the middle. */
+  /* Conveyor-belt "barber pole" stripes on the beam's front surface,
+     instead of a line whose height oscillates back and forth (which
+     reads as bouncing, not turning). Each stripe's raw position scrolls
+     continuously with local twist angle and WRAPS via modulo — as one
+     stripe exits the top it re-enters at the bottom (or vice versa,
+     depending on twist direction), which is exactly what a rotating
+     shaft's surface markings look like from the side. Because a wrap can
+     happen partway ALONG THE LENGTH too (wherever a developing twist's
+     angle crosses a period boundary), each stripe is drawn as several
+     broken path segments rather than one continuous polyline — bridging
+     the wrap point with a straight line would draw a bogus diagonal
+     spanning the whole beam height. Only drawn while animating; at rest
+     they'd just be a static, uninformative line down the middle. */
   if(animating){
-    const fiberSeg = 48;
+    const fiberSeg = 60;
     const halfLen = BEAM_HH*0.82;
-    const gap = halfLen*0.32;
-    const lineA = [], lineB = [];
-    for(let i=0;i<=fiberSeg;i++){
-      const xt = L*i/fiberSeg;
-      let lo=0; while(lo<xs.length-1 && xs[lo+1]<xt) lo++;
-      const localTwist = deform.twist[lo]*frac.torque + escape.twistSpin;
-      const ax = xPix(xt) + deform.axialU[lo]*frac.axial;
-      const vy = deform.bendV[lo]*frac.bend;
-      const off = Math.sin(localTwist)*halfLen;
-      lineA.push(`${ax.toFixed(1)},${(CY+vy+off-gap).toFixed(1)}`);
-      lineB.push(`${ax.toFixed(1)},${(CY+vy+off+gap).toFixed(1)}`);
+    const period = 2*halfLen;
+    const scrollPerRadian = halfLen/Math.PI; /* one full scroll cycle per full rotation */
+    const stripeCount = 3;
+    for(let s=0; s<stripeCount; s++){
+      const phase = s*period/stripeCount;
+      let d = '', prevY = null;
+      for(let i=0;i<=fiberSeg;i++){
+        const xt = L*i/fiberSeg;
+        let lo=0; while(lo<xs.length-1 && xs[lo+1]<xt) lo++;
+        const localTwist = deform.twist[lo]*frac.torque + escape.twistSpin;
+        const ax = xPix(xt) + deform.axialU[lo]*frac.axial;
+        const vy = deform.bendV[lo]*frac.bend;
+        let wrapped = (localTwist*scrollPerRadian + phase) % period;
+        if(wrapped<0) wrapped += period;
+        const y = CY + vy - halfLen + wrapped;
+        const broke = prevY!==null && Math.abs(y-prevY) > period*0.5;
+        d += (broke || prevY===null ? ' M ' : ' L ') + ax.toFixed(1)+' '+y.toFixed(1);
+        prevY = y;
+      }
+      el('path',{d, fill:'none', stroke:'var(--steel)','stroke-width':1.4}, root);
     }
-    el('path',{d:'M '+lineA.join(' L '), fill:'none', stroke:'var(--steel)','stroke-width':1.4}, root);
-    el('path',{d:'M '+lineB.join(' L '), fill:'none', stroke:'var(--steel)','stroke-width':1.4}, root);
   }
 
   /* node baseline for reference */
