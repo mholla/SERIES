@@ -234,7 +234,7 @@ function vArrow(parent, x, y1, y2, color, width, headSize=8){
   vArrowHead(x,y2,dir,headSize,color,parent);
 }
 function momentArc(parent, cx, cy0, r, ccw, color, sw=3){
-  const spanStart=15, spanEnd=345, steps=40;
+  const spanStart=45, spanEnd=315, steps=40; /* 270 deg = 3/4 circumference */
   let d='';
   for(let i=0;i<=steps;i++){
     const t=i/steps;
@@ -586,18 +586,30 @@ function renderScene(deform, frac, escape){
   const pathD = `M ${topPts.join(' L ')} L ${botPts.reverse().join(' L ')} Z`;
   el('path',{d:pathD, fill:'#F6F7F4', stroke:'var(--ink)','stroke-width':1.8}, root);
 
-  /* twist tick marks along the length */
-  const twistTicks = 9;
-  for(let i=0;i<=twistTicks;i++){
-    const xt = L*i/twistTicks;
+  /* Longitudinal fiber lines tracing the beam's top and bottom surface
+     along its FULL length. A perpendicular tick mark only shows rotation
+     at one cross-section at a time; a line running the whole length shows
+     how that rotation has propagated along the beam (or, for a free spin,
+     that it hasn't propagated at all — every point rotates together) —
+     the same "twisted ribbon" idea as a barber pole. At zero twist each
+     fiber sits exactly on the beam's drawn top/bottom edge; as local twist
+     approaches 90 degrees they sweep in toward the centerline (viewed
+     edge-on, top and bottom appear to coincide), then on past it. */
+  const fiberSeg = 48;
+  const halfLen = BEAM_HH*0.82;
+  const topFiber = [], botFiber = [];
+  for(let i=0;i<=fiberSeg;i++){
+    const xt = L*i/fiberSeg;
     let lo=0; while(lo<xs.length-1 && xs[lo+1]<xt) lo++;
     const localTwist = deform.twist[lo]*frac.torque + escape.twistSpin;
     const ax = xPix(xt) + deform.axialU[lo]*frac.axial;
     const vy = deform.bendV[lo]*frac.bend;
-    const halfLen = BEAM_HH*0.82;
-    const dx = Math.sin(localTwist)*halfLen, dy = Math.cos(localTwist)*halfLen;
-    el('line',{x1:ax-dx,y1:CY+vy-dy,x2:ax+dx,y2:CY+vy+dy,stroke:'var(--steel)','stroke-width':1.4},root);
+    const off = Math.cos(localTwist)*halfLen;
+    topFiber.push(`${ax.toFixed(1)},${(CY+vy-off).toFixed(1)}`);
+    botFiber.push(`${ax.toFixed(1)},${(CY+vy+off).toFixed(1)}`);
   }
+  el('path',{d:'M '+topFiber.join(' L '), fill:'none', stroke:'var(--steel)','stroke-width':1.4}, root);
+  el('path',{d:'M '+botFiber.join(' L '), fill:'none', stroke:'var(--steel)','stroke-width':1.4}, root);
 
   /* node baseline for reference */
   el('line',{x1:xPix(0)-10,y1:CY+BEAM_HH+40,x2:xPix(L)+10,y2:CY+BEAM_HH+40,stroke:'var(--steel-light)','stroke-width':1,'stroke-dasharray':'3,4'},root);
@@ -694,9 +706,17 @@ function bendingNet(){
   return {fy, m};
 }
 
-function describeResult(result){
-  const bits = [];
-  let anyBad = false;
+function joinWithAnd(arr){
+  if(arr.length<=1) return arr.join('');
+  if(arr.length===2) return arr.join(' and ');
+  return arr.slice(0,-1).join(', ')+', and '+arr[arr.length-1];
+}
+
+/* One overarching bold headline (static equilibrium, or underconstrained
+   and what it will physically do), followed by at most two concise notes
+   (statically indeterminate channels, and/or reactions that came out
+   zero) — not a full per-channel breakdown. */
+function describeResult(result, bendMode){
   const ZERO_TOL = 1e-6;
   const labels = reactionLabels();
 
@@ -704,31 +724,40 @@ function describeResult(result){
   const bendR = result.solved.map((r,i)=>({...r, name:labels[i]})).filter(r=>r.type==='transverse'||r.type==='moment');
   const torqueR = result.solved.map((r,i)=>({...r, name:labels[i]})).filter(r=>r.type==='torque');
 
+  const anyBad = !result.axial.stable || !result.bending.stable || !result.torque.stable;
+
+  const verbs = [];
+  if(!result.axial.stable) verbs.push('translate');
+  if(!result.bending.stable){
+    if(bendMode==='pivot') verbs.push('rotate');
+    else if(bendMode==='translate'){ if(!verbs.includes('translate')) verbs.push('translate'); }
+    else { if(!verbs.includes('translate')) verbs.push('translate'); verbs.push('rotate'); }
+  }
+  if(!result.torque.stable) verbs.push('twist');
+  const headline = anyBad ? `Underconstrained — will ${joinWithAnd(verbs)}` : 'Static equilibrium';
+
+  const notes = [];
+
   /* A channel with MORE reactions than its equation count (1 for axial and
      torque, 2 for the coupled transverse+moment channel) that's still
      stable is statically indeterminate — the equilibrium equations alone
      can't pin down each reaction (the even/minimum-norm split shown on a
      nonzero reaction there is just one of infinitely many valid answers,
      which is why only the ones that come out exactly zero get a number). */
-  if(!result.axial.stable){ anyBad=true; bits.push('Axial: unresisted — the beam slides off along its own axis.'); }
-  else if(result.axial.indeterminate) bits.push(`Axial: statically indeterminate — ${axialR.length} reactions doing the job of 1.`);
-  else if(loads.some(l=>l.type==='axial')) bits.push('Axial: balanced — the beam compresses or stretches slightly.');
+  const indeterminateChans = [];
+  if(result.axial.indeterminate) indeterminateChans.push('axial');
+  if(result.bending.indeterminate) indeterminateChans.push('transverse/moment');
+  if(result.torque.indeterminate) indeterminateChans.push('torque');
+  if(indeterminateChans.length) notes.push(`Statically indeterminate: ${indeterminateChans.join(', ')}.`);
 
-  if(!result.bending.stable){ anyBad=true; bits.push('Transverse/moment: unresisted — the beam translates and/or tumbles away.'); }
-  else if(result.bending.indeterminate) bits.push(`Transverse/moment: statically indeterminate — ${bendR.length} reactions doing the job of 2.`);
-  else if(loads.some(l=>l.type==='transverse'||l.type==='moment')) bits.push('Transverse/moment: balanced — the beam bends.');
+  const zeroNames = [];
+  if(result.axial.stable) axialR.forEach(r=>{ if(Math.abs(r.val)<ZERO_TOL) zeroNames.push(r.name); });
+  if(result.bending.stable) bendR.forEach(r=>{ if(Math.abs(r.val)<ZERO_TOL) zeroNames.push(r.name); });
+  if(result.torque.stable) torqueR.forEach(r=>{ if(Math.abs(r.val)<ZERO_TOL) zeroNames.push(r.name); });
+  if(zeroNames.length===1) notes.push(`Note: ${zeroNames[0]} is zero!`);
+  else if(zeroNames.length>1) notes.push(`Note: ${zeroNames.join(', ')} are zero!`);
 
-  if(!result.torque.stable){ anyBad=true; bits.push('Torque: unresisted — the beam spins about its own axis.'); }
-  else if(result.torque.indeterminate) bits.push(`Torque: statically indeterminate — ${torqueR.length} reactions doing the job of 1.`);
-  else if(loads.some(l=>l.type==='torque')) bits.push('Torque: balanced — the beam twists.');
-
-  if(bits.length===0) bits.push('No loads act in a channel that has anything to show — try "New problem."');
-
-  if(result.axial.stable) axialR.forEach(r=>{ if(Math.abs(r.val)<ZERO_TOL) bits.push(`Note: ${r.name} is zero!`); });
-  if(result.bending.stable) bendR.forEach(r=>{ if(Math.abs(r.val)<ZERO_TOL) bits.push(`Note: ${r.name} is zero!`); });
-  if(result.torque.stable) torqueR.forEach(r=>{ if(Math.abs(r.val)<ZERO_TOL) bits.push(`Note: ${r.name} is zero!`); });
-
-  return {anyBad, bits};
+  return {anyBad, headline, notes};
 }
 
 function play(){
@@ -738,9 +767,6 @@ function play(){
   solvedShown = true;
   indeterminateChannels = {axial: result.axial.indeterminate, torque: result.torque.indeterminate, bending: result.bending.indeterminate};
   const deform = computeDeformation(result);
-  const {anyBad, bits} = describeResult(result);
-  banner.className = 'show ' + (anyBad?'bad':'ok');
-  banner.innerHTML = `<b>${anyBad?'Unstable':'Stable'}</b><ul>${bits.map(b=>`<li>${b}</li>`).join('')}</ul>`;
 
   const {fy, m} = bendingNet();
   const axialNet = channelLoadSum('axial');
@@ -769,6 +795,10 @@ function play(){
   const dirDy = fy>=0?-1:1, dirRot = mForRot>=0?-1:1;
   const pivotPx = xPix(pivotX);
   const ESCAPE_ACCEL = 90, ROT_ACCEL = 70, SPIN_RATE = 3.2;
+
+  const {anyBad, headline, notes} = describeResult(result, bendMode);
+  banner.className = 'show ' + (anyBad?'bad':'ok');
+  banner.innerHTML = `<b>${headline}</b>` + (notes.length ? `<ul>${notes.map(n=>`<li>${n}</li>`).join('')}</ul>` : '');
 
   const start = performance.now();
   playBtn.disabled = true; newProblemBtn.disabled = true; resetBtn.disabled = true;
