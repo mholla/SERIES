@@ -419,7 +419,12 @@ function internalBendingMoment(items, xs){
       if(it.x>=x) return;
       const v = physVal(it);
       if(it.type==='transverse') m += v*(x-it.x);
-      else if(it.type==='moment') m += v;
+      /* A CCW-positive applied couple causes a downward jump in the
+         sagging-positive moment diagram just to its right (standard
+         method-of-sections result) — verified against a hand-worked
+         cantilever (fixed end + tip load): M(x) must fall to zero at
+         the free tip, which only holds with this sign. */
+      else if(it.type==='moment') m -= v;
     });
     return m;
   });
@@ -474,6 +479,16 @@ function normalize(arr, target){
   const s = target/maxAbs;
   return arr.map(v=>v*s);
 }
+/* There's no real stiffness given, so the animated amplitude can't be
+   exact — but it shouldn't be identical for a light load and a heavy one
+   either. Scale the target amplitude by how the raw (unit-stiffness)
+   integrated magnitude compares to a "typical" scenario for that channel
+   (calibrated against a mid-range load at mid-span), clamped so a very
+   small or very large case still reads clearly on screen. */
+function magnitudeScale(rawArr, ref){
+  const raw = Math.max(...rawArr.map(Math.abs), 1e-9);
+  return Math.min(2.2, Math.max(0.35, raw/ref));
+}
 /* Interpolate a sampled array (defined over xs) at an arbitrary beam-x. */
 function sampleAt(xs, arr, xVal){
   let lo=0; while(lo<xs.length-1 && xs[lo+1]<xVal) lo++;
@@ -494,14 +509,16 @@ function computeDeformation(result){
   const rawU = cumTrapz(xs, N);
   const axialAnchors = result.solved.filter(r=>r.type==='axial').map(r=>r.x);
   const u0 = anchorConstant1(xs, rawU, axialAnchors);
-  const axialU = axialLoaded ? normalize(rawU.map(v=>v+u0), 22) : xs.map(()=>0);
+  const axialShifted = rawU.map(v=>v+u0);
+  const axialU = axialLoaded ? normalize(axialShifted, 22*magnitudeScale(axialShifted, 2250)) : xs.map(()=>0);
 
   const torqueLoaded = loads.some(l=>l.type==='torque');
   const T = internalTorque(items, xs);
   const rawTwist = cumTrapz(xs, T);
   const torqueAnchors = result.solved.filter(r=>r.type==='torque').map(r=>r.x);
   const t0 = anchorConstant1(xs, rawTwist, torqueAnchors);
-  const twist = torqueLoaded ? normalize(rawTwist.map(v=>v+t0), 0.9) : xs.map(()=>0);
+  const twistShifted = rawTwist.map(v=>v+t0);
+  const twist = torqueLoaded ? normalize(twistShifted, 0.9*magnitudeScale(twistShifted, 3000)) : xs.map(()=>0);
 
   const bendLoaded = loads.some(l=>l.type==='transverse'||l.type==='moment');
   const M = internalBendingMoment(items, xs);
@@ -510,7 +527,8 @@ function computeDeformation(result){
   const deflectAnchors = result.solved.filter(r=>r.type==='transverse').map(r=>r.x);
   const slopeAnchors = result.solved.filter(r=>r.type==='moment').map(r=>r.x);
   const [v0, s0] = anchorConstants2(xs, rawV, rawSlope, deflectAnchors, slopeAnchors);
-  const bendV = bendLoaded ? normalize(rawV.map((v,i)=>v + v0 + s0*xs[i]), 26) : xs.map(()=>0);
+  const bendShifted = rawV.map((v,i)=>v + v0 + s0*xs[i]);
+  const bendV = bendLoaded ? normalize(bendShifted, 26*magnitudeScale(bendShifted, 30000)) : xs.map(()=>0);
 
   return { xs, axialU, bendV, twist };
 }
@@ -651,13 +669,35 @@ function bendingNet(){
 function describeResult(result){
   const bits = [];
   let anyBad = false;
+  const ZERO_TOL = 1e-6;
+
+  const axialR = result.solved.filter(r=>r.type==='axial');
+  const bendR = result.solved.filter(r=>r.type==='transverse'||r.type==='moment');
+  const torqueR = result.solved.filter(r=>r.type==='torque');
+
+  /* A channel with MORE reactions than its equation count (1 for axial and
+     torque, 2 for the coupled transverse+moment channel) that's still
+     stable is statically indeterminate — the equilibrium equations alone
+     can't pin down each reaction (the even/minimum-norm split shown here
+     is just one of infinitely many valid answers). */
   if(!result.axial.stable){ anyBad=true; bits.push('Axial: unresisted — the beam slides off along its own axis.'); }
+  else if(axialR.length>1) bits.push(`Axial: statically indeterminate — ${axialR.length} reactions doing the job of 1.`);
   else if(loads.some(l=>l.type==='axial')) bits.push('Axial: balanced — the beam compresses or stretches slightly.');
+
   if(!result.bending.stable){ anyBad=true; bits.push('Transverse/moment: unresisted — the beam translates and/or tumbles away.'); }
+  else if(bendR.length>2) bits.push(`Transverse/moment: statically indeterminate — ${bendR.length} reactions doing the job of 2.`);
   else if(loads.some(l=>l.type==='transverse'||l.type==='moment')) bits.push('Transverse/moment: balanced — the beam bends.');
+
   if(!result.torque.stable){ anyBad=true; bits.push('Torque: unresisted — the beam spins about its own axis.'); }
+  else if(torqueR.length>1) bits.push(`Torque: statically indeterminate — ${torqueR.length} reactions doing the job of 1.`);
   else if(loads.some(l=>l.type==='torque')) bits.push('Torque: balanced — the beam twists.');
+
   if(bits.length===0) bits.push('No loads act in a channel that has anything to show — try "New problem."');
+
+  if(result.axial.stable) axialR.forEach(r=>{ if(Math.abs(r.val)<ZERO_TOL) bits.push(`Note: the axial reaction at x = ${r.x.toFixed(1)} m is zero!`); });
+  if(result.bending.stable) bendR.forEach(r=>{ if(Math.abs(r.val)<ZERO_TOL) bits.push(`Note: the ${r.type} reaction at x = ${r.x.toFixed(1)} m is zero!`); });
+  if(result.torque.stable) torqueR.forEach(r=>{ if(Math.abs(r.val)<ZERO_TOL) bits.push(`Note: the torque reaction at x = ${r.x.toFixed(1)} m is zero!`); });
+
   return {anyBad, bits};
 }
 
