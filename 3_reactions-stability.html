@@ -27,16 +27,22 @@
   svg#stage{width:100%;display:block;}
   .drop-hint{display:flex;justify-content:space-between;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--steel);padding:8px 14px 12px;border-top:1px dashed var(--panel-border);}
 
-  .palette-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px;}
-  .palette-label{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--steel);letter-spacing:0.04em;text-transform:uppercase;margin-right:4px;}
-  .palette-item{
-    display:flex;flex-direction:column;align-items:center;gap:4px;
-    width:78px;padding:8px 4px 7px;border:1.5px solid var(--teal);border-radius:8px;
-    background:var(--teal-soft);cursor:grab;user-select:none;touch-action:none;
+  .palette-row{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-top:16px;}
+  .palette-label{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--steel);letter-spacing:0.04em;text-transform:uppercase;margin-right:2px;margin-bottom:9px;}
+  .palette-group{
+    display:flex;flex-direction:column;align-items:center;gap:5px;
+    padding:7px 8px;border:1.5px solid var(--teal);border-radius:8px;background:var(--teal-soft);
   }
+  .dir-pair{display:flex;gap:3px;}
+  .palette-item{
+    display:flex;align-items:center;justify-content:center;
+    width:36px;height:36px;border-radius:6px;
+    cursor:grab;user-select:none;touch-action:none;
+  }
+  .palette-item:hover{background:rgba(255,255,255,0.55);}
   .palette-item:active{cursor:grabbing;}
-  .palette-item svg{width:38px;height:38px;display:block;}
-  .palette-item .plabel{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--ink);font-weight:600;}
+  .palette-item svg{width:30px;height:30px;display:block;}
+  .palette-group .plabel{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--ink);font-weight:600;}
   .palette-item.dragging{opacity:0.35;}
 
   .ghost{position:fixed;pointer-events:none;width:38px;height:38px;z-index:50;opacity:0.85;transform:translate(-50%,-50%);}
@@ -86,26 +92,57 @@
 
   <div class="palette-row">
     <span class="palette-label">Add reaction:</span>
-    <div class="palette-item" data-type="axial" draggable="false">
-      <svg viewBox="0 0 40 40"><line x1="6" y1="20" x2="30" y2="20" stroke="#1F7A6C" stroke-width="3.4" stroke-linecap="round"/><polygon points="34,20 24,15 24,25" fill="#1F7A6C"/></svg>
+    <div class="palette-group">
+      <div class="dir-pair">
+        <div class="palette-item" data-type="axial" data-dir="1" draggable="false">
+          <svg viewBox="0 0 40 40"><line x1="6" y1="20" x2="30" y2="20" stroke="#1F7A6C" stroke-width="3.4" stroke-linecap="round"/><polygon points="34,20 24,15 24,25" fill="#1F7A6C"/></svg>
+        </div>
+        <div class="palette-item" data-type="axial" data-dir="-1" draggable="false">
+          <svg viewBox="0 0 40 40"><line x1="34" y1="20" x2="10" y2="20" stroke="#1F7A6C" stroke-width="3.4" stroke-linecap="round"/><polygon points="6,20 16,15 16,25" fill="#1F7A6C"/></svg>
+        </div>
+      </div>
       <span class="plabel">axial</span>
     </div>
-    <div class="palette-item" data-type="transverse" draggable="false">
-      <svg viewBox="0 0 40 40"><line x1="20" y1="34" x2="20" y2="10" stroke="#1F7A6C" stroke-width="3.4" stroke-linecap="round"/><polygon points="20,6 15,16 25,16" fill="#1F7A6C"/></svg>
+    <div class="palette-group">
+      <div class="dir-pair">
+        <div class="palette-item" data-type="transverse" data-dir="1" draggable="false">
+          <svg viewBox="0 0 40 40"><line x1="20" y1="34" x2="20" y2="10" stroke="#1F7A6C" stroke-width="3.4" stroke-linecap="round"/><polygon points="20,6 15,16 25,16" fill="#1F7A6C"/></svg>
+        </div>
+        <div class="palette-item" data-type="transverse" data-dir="-1" draggable="false">
+          <svg viewBox="0 0 40 40"><line x1="20" y1="6" x2="20" y2="30" stroke="#1F7A6C" stroke-width="3.4" stroke-linecap="round"/><polygon points="20,34 15,24 25,24" fill="#1F7A6C"/></svg>
+        </div>
+      </div>
       <span class="plabel">transverse</span>
     </div>
-    <div class="palette-item" data-type="moment" draggable="false">
-      <svg viewBox="0 0 40 40"><path d="M 30 27 A 13 13 0 1 1 27 10" fill="none" stroke="#1F7A6C" stroke-width="3.2" stroke-linecap="round"/><polygon points="30,6 25,12 34,13" fill="#1F7A6C"/></svg>
+    <div class="palette-group">
+      <div class="dir-pair">
+        <div class="palette-item" data-type="moment" data-dir="1" draggable="false">
+          <svg viewBox="0 0 40 40"><path d="M 30 27 A 13 13 0 1 1 27 10" fill="none" stroke="#1F7A6C" stroke-width="3.2" stroke-linecap="round"/><polygon points="30,6 25,12 34,13" fill="#1F7A6C"/></svg>
+        </div>
+        <div class="palette-item" data-type="moment" data-dir="-1" draggable="false">
+          <svg viewBox="0 0 40 40"><g transform="translate(40,0) scale(-1,1)"><path d="M 30 27 A 13 13 0 1 1 27 10" fill="none" stroke="#1F7A6C" stroke-width="3.2" stroke-linecap="round"/><polygon points="30,6 25,12 34,13" fill="#1F7A6C"/></g></svg>
+        </div>
+      </div>
       <span class="plabel">moment</span>
     </div>
-    <div class="palette-item" data-type="torque" draggable="false">
-      <svg viewBox="0 0 40 40"><path d="M 20 8 Q 27 20 20 32" fill="none" stroke="#1F7A6C" stroke-width="3.2" stroke-linecap="round"/><polygon points="20,36 15,28 24,29" fill="#1F7A6C"/></svg>
+    <div class="palette-group">
+      <div class="dir-pair">
+        <div class="palette-item" data-type="torque" data-dir="1" draggable="false">
+          <svg viewBox="0 0 40 40"><path d="M 20 8 Q 27 20 20 32" fill="none" stroke="#1F7A6C" stroke-width="3.2" stroke-linecap="round"/><polygon points="20,36 15,28 24,29" fill="#1F7A6C"/></svg>
+        </div>
+        <div class="palette-item" data-type="torque" data-dir="-1" draggable="false">
+          <svg viewBox="0 0 40 40"><g transform="translate(0,40) scale(1,-1)"><path d="M 20 8 Q 27 20 20 32" fill="none" stroke="#1F7A6C" stroke-width="3.2" stroke-linecap="round"/><polygon points="20,36 15,28 24,29" fill="#1F7A6C"/></g></svg>
+        </div>
+      </div>
       <span class="plabel">torque</span>
     </div>
   </div>
 
   <div class="controls-row">
-    <button class="action-btn" id="newProblemBtn">New problem</button>
+    <div style="display:flex;gap:10px;">
+      <button class="action-btn" id="newProblemBtn">New problem</button>
+      <button class="action-btn" id="resetBtn">Reset</button>
+    </div>
     <button class="action-btn primary" id="playBtn">▶ Play</button>
   </div>
 
@@ -138,13 +175,21 @@ function text(x,y,str,attrs,parent){
 }
 
 /* ---------- Data model ----------
-   Each load/reaction: {type: 'axial'|'transverse'|'moment'|'torque', x, val}.
-   val is a SIGNED magnitude: +axial points +x, +transverse points +y (up),
-   +moment is CCW (sagging-consistent), +torque follows the right-hand rule
-   about +x. Loads are randomly generated and fixed; reactions are added by
-   the student and solved for at Play time. */
+   Loads: {type: 'axial'|'transverse'|'moment'|'torque', x, val}. val is a
+   SIGNED magnitude: +axial points +x, +transverse points +y (up), +moment
+   is CCW (sagging-consistent), +torque follows the right-hand rule about
+   +x. Loads are randomly generated and fixed.
+
+   Reactions: {type, x, dir, val}. dir (+1/-1) is the direction the student
+   chose when dragging it in — the glyph is always drawn in that assumed
+   direction and never flips. val is the solved magnitude in that assumed
+   direction (filled in at Play time; can come out negative, meaning the
+   true reaction is opposite the drawn arrow — same convention used
+   throughout this SERIES). Values are hidden until Play has been pressed. */
 let loads = [];
 let reactions = [];
+let solvedShown = false;
+function fmtSigned(v){ const r = Math.round(v); return (r===0?0:r).toString(); }
 
 const TYPE_OPTIONS = ['axial','transverse','moment','torque'];
 function randVal(lo, hi, step){
@@ -221,32 +266,52 @@ function torqueGlyph(parent, x, yTop, yBot, ccw, color, sw=3){
 }
 
 /* Draw one load or reaction glyph. isReaction picks the color and (for
-   removal) tags the element with a data attribute + click handler. */
+   removal) tags the element with a data attribute + click handler.
+   Reactions are always drawn in their chosen assumed direction (item.dir)
+   and only show a numeric label once solvedShown is true; loads always
+   show their (randomly generated, already-known) value with the arrow
+   flipped to match its sign. */
 function drawGlyph(parent, item, isReaction, cy, onRemove, dx){
   const color = isReaction ? 'var(--teal)' : 'var(--force)';
   const px = xPix(item.x) + (dx||0);
   const g = el('g',{style: isReaction?'cursor:pointer':''}, parent);
   if(isReaction) g.addEventListener('click', ()=>onRemove(item));
+  const showLabel = !isReaction || solvedShown;
+  const label = unit => isReaction ? `${fmtSigned(item.val)} ${unit}` : `${Math.abs(item.val)} ${unit}`;
 
   if(item.type==='axial'){
-    const len=34, dir = item.val>=0?1:-1;
+    const len=34, dir = isReaction ? item.dir : (item.val>=0?1:-1);
     hArrow(g, px, cy, px+dir*len, color, 3.2, 9);
-    text(px, cy-14, `${Math.abs(item.val)} N`, {'text-anchor':'middle',fill:color,'font-weight':700}, g);
+    if(showLabel) text(px, cy-14, label('N'), {'text-anchor':'middle',fill:color,'font-weight':700}, g);
   } else if(item.type==='transverse'){
-    const len=34, dir = item.val>=0?-1:1; /* val>0 = points up = -y */
-    const y1 = cy, y2 = cy+dir*len;
-    vArrow(g, px, y1, y2, color, 3.2, 9);
-    text(px, (dir>0? y2-8 : y2+18), `${Math.abs(item.val)} N`, {'text-anchor':'middle',fill:color,'font-weight':700}, g);
+    const len=34;
+    if(isReaction){
+      /* Reactions sit outside the beam, arrowhead touching the surface:
+         dir>0 ("up") is drawn below pushing up into the beam; dir<0
+         ("down") is drawn above pushing down into the beam. */
+      const up = item.dir>=0;
+      const y2 = up ? cy+BEAM_HH : cy-BEAM_HH;
+      const y1 = up ? y2+len : y2-len;
+      vArrow(g, px, y1, y2, color, 3.2, 9);
+      if(showLabel) text(px, up? y1+16 : y1-10, label('N'), {'text-anchor':'middle',fill:color,'font-weight':700}, g);
+    } else {
+      const dir = item.val>=0?-1:1; /* val>0 = points up = -y */
+      const y1 = cy, y2 = cy+dir*len;
+      vArrow(g, px, y1, y2, color, 3.2, 9);
+      text(px, (dir>0? y2-8 : y2+18), label('N'), {'text-anchor':'middle',fill:color,'font-weight':700}, g);
+    }
   } else if(item.type==='moment'){
-    const r=17, cyo = cy-32;
-    momentArc(g, px, cyo, r, item.val>=0, color, 2.8);
-    text(px, cyo-r-9, `${Math.abs(item.val)} N·m`, {'text-anchor':'middle',fill:color,'font-weight':700}, g);
+    const r=17, cyo = cy; /* centered on the beam axis, looping around it */
+    const ccw = isReaction ? item.dir>=0 : item.val>=0;
+    momentArc(g, px, cyo, r, ccw, color, 2.8);
+    if(showLabel) text(px, cyo-r-9, label('N·m'), {'text-anchor':'middle',fill:color,'font-weight':700}, g);
   } else if(item.type==='torque'){
-    const yTop = cy-34, yBot = cy+34;
-    torqueGlyph(g, px+26, yTop, yBot, item.val>=0, color, 2.8);
-    text(px+26, yTop-9, `${Math.abs(item.val)} N·m`, {'text-anchor':'middle',fill:color,'font-weight':700}, g);
+    const yTop = cy-34, yBot = cy+34; /* centered on the beam axis */
+    const ccw = isReaction ? item.dir>=0 : item.val>=0;
+    torqueGlyph(g, px, yTop, yBot, ccw, color, 2.8);
+    if(showLabel) text(px, yTop-9, label('N·m'), {'text-anchor':'middle',fill:color,'font-weight':700}, g);
   }
-  if(isReaction){
+  if(isReaction && item.type!=='transverse'){
     el('circle',{cx:px,cy:cy+BEAM_HH+2,r:2.2,fill:color},g);
   }
   return g;
@@ -284,10 +349,16 @@ function solveChannel2(columns, b){
   const sumSq = scalars.reduce((s,v)=>s+v*v,0);
   return { stable:true, r: scalars.map(s => sumSq>1e-9 ? k*s/sumSq : 0) };
 }
-function solveChannel1(count, netApplied){
-  if(count===0) return { stable: Math.abs(netApplied)<1e-6, r: [] };
-  const each = -netApplied/count;
-  return { stable:true, r: Array(count).fill(each) };
+/* dirs: the assumed direction (+1/-1) each placed reaction contributes
+   with. A single scalar equation, always solvable (minimum-norm) once
+   there's at least one reaction, regardless of which way it's assumed to
+   point — dirs are all +/-1 so this reduces to an even split. */
+function solveChannel1(dirs, netApplied){
+  const n = dirs.length;
+  if(n===0) return { stable: Math.abs(netApplied)<1e-6, r: [] };
+  const sumSq = dirs.reduce((s,d)=>s+d*d,0);
+  const k = -netApplied/sumSq;
+  return { stable:true, r: dirs.map(d=> k*d) };
 }
 
 /* Solve every channel given the current loads + placed reactions. Returns
@@ -298,16 +369,16 @@ function solveAll(){
 
   const axialR = solved.filter(r=>r.type==='axial');
   const axialLoadSum = loads.filter(l=>l.type==='axial').reduce((s,l)=>s+l.val,0);
-  const axialRes = solveChannel1(axialR.length, axialLoadSum);
+  const axialRes = solveChannel1(axialR.map(r=>r.dir), axialLoadSum);
   axialR.forEach((r,i)=> r.val = axialRes.r[i]);
 
   const torqueR = solved.filter(r=>r.type==='torque');
   const torqueLoadSum = loads.filter(l=>l.type==='torque').reduce((s,l)=>s+l.val,0);
-  const torqueRes = solveChannel1(torqueR.length, torqueLoadSum);
+  const torqueRes = solveChannel1(torqueR.map(r=>r.dir), torqueLoadSum);
   torqueR.forEach((r,i)=> r.val = torqueRes.r[i]);
 
   const bendR = solved.filter(r=>r.type==='transverse'||r.type==='moment');
-  const columns = bendR.map(r=> r.type==='transverse' ? [1, r.x] : [0, 1]);
+  const columns = bendR.map(r=> r.type==='transverse' ? [r.dir, r.dir*r.x] : [0, r.dir]);
   let fyLoad=0, mLoad=0;
   loads.forEach(l=>{
     if(l.type==='transverse'){ fyLoad += l.val; mLoad += l.val*l.x; }
@@ -334,22 +405,27 @@ function solveAll(){
 const N_SAMPLES = 60;
 function sampleXs(){ const xs=[]; for(let i=0;i<=N_SAMPLES;i++) xs.push(L*i/N_SAMPLES); return xs; }
 
+/* Reactions store val as a magnitude along their chosen assumed direction
+   (dir); loads store val as the true signed value directly. This converts
+   either to the true physical signed contribution. */
+function physVal(it){ return it.dir!==undefined ? it.val*it.dir : it.val; }
 function internalAxial(items, xs){
-  return xs.map(x => items.filter(it=>it.type==='axial' && it.x<x).reduce((s,it)=>s+it.val,0));
+  return xs.map(x => items.filter(it=>it.type==='axial' && it.x<x).reduce((s,it)=>s+physVal(it),0));
 }
 function internalBendingMoment(items, xs){
   return xs.map(x => {
     let m=0;
     items.forEach(it=>{
       if(it.x>=x) return;
-      if(it.type==='transverse') m += it.val*(x-it.x);
-      else if(it.type==='moment') m += it.val;
+      const v = physVal(it);
+      if(it.type==='transverse') m += v*(x-it.x);
+      else if(it.type==='moment') m += v;
     });
     return m;
   });
 }
 function internalTorque(items, xs){
-  return xs.map(x => items.filter(it=>it.type==='torque' && it.x<x).reduce((s,it)=>s+it.val,0));
+  return xs.map(x => items.filter(it=>it.type==='torque' && it.x<x).reduce((s,it)=>s+physVal(it),0));
 }
 function cumTrapz(xs, ys){
   const out=[0];
@@ -495,6 +571,7 @@ function renderStatic(){
 
 function removeReaction(item){
   reactions = reactions.filter(r=>r!==item);
+  solvedShown = false;
   renderStatic();
 }
 
@@ -502,15 +579,15 @@ function removeReaction(item){
    Custom pointer-based dragging (rather than HTML5 DnD) since the drop
    target is an SVG element and we want a live ghost that tracks touch too. */
 const ghostLayer = document.getElementById('ghostLayer');
-let dragType = null, ghostEl = null;
+let dragItem = null, ghostEl = null;
 
-function paletteSvgFor(type){
-  return document.querySelector(`.palette-item[data-type="${type}"] svg`).cloneNode(true);
+function paletteSvgFor(type, dir){
+  return document.querySelector(`.palette-item[data-type="${type}"][data-dir="${dir}"] svg`).cloneNode(true);
 }
-function startDrag(type, sourceEl, evt){
-  dragType = type;
+function startDrag(type, dir, sourceEl, evt){
+  dragItem = {type, dir};
   sourceEl.classList.add('dragging');
-  ghostEl = paletteSvgFor(type);
+  ghostEl = paletteSvgFor(type, dir);
   ghostEl.classList.add('ghost');
   document.body.appendChild(ghostEl);
   moveGhost(evt);
@@ -528,19 +605,21 @@ function endDrag(evt, sourceEl){
     const px = vb.x + (p.clientX-rect.left)/rect.width*vb.width;
     let x = Math.min(L, Math.max(0, xOf(px)));
     x = Math.round(x*5)/5; /* snap to 0.2 m for a stable click target */
-    reactions.push({type:dragType, x, val:0});
+    reactions.push({type:dragItem.type, dir:dragItem.dir, x, val:0});
+    solvedShown = false;
     renderStatic();
   }
   if(sourceEl) sourceEl.classList.remove('dragging');
   if(ghostEl){ ghostEl.remove(); ghostEl=null; }
-  dragType = null;
+  dragItem = null;
   document.getElementById('hintText').textContent = 'Drag a reaction from below onto the beam. Click a placed reaction to remove it.';
 }
 document.querySelectorAll('.palette-item').forEach(itemEl=>{
   const type = itemEl.dataset.type;
+  const dir = parseInt(itemEl.dataset.dir, 10);
   itemEl.addEventListener('pointerdown', evt=>{
     evt.preventDefault();
-    startDrag(type, itemEl, evt);
+    startDrag(type, dir, itemEl, evt);
     const onMove = e=> moveGhost(e);
     const onUp = e=>{
       endDrag(e, itemEl);
@@ -555,6 +634,7 @@ document.querySelectorAll('.palette-item').forEach(itemEl=>{
 /* ---------- Play ---------- */
 const playBtn = document.getElementById('playBtn');
 const newProblemBtn = document.getElementById('newProblemBtn');
+const resetBtn = document.getElementById('resetBtn');
 const banner = document.getElementById('resultBanner');
 let rafId = null;
 
@@ -585,6 +665,7 @@ function play(){
   if(rafId) cancelAnimationFrame(rafId);
   const result = solveAll();
   result.solved.forEach((s,i)=> { reactions[i].val = s.val; });
+  solvedShown = true;
   const deform = computeDeformation(result);
   const {anyBad, bits} = describeResult(result);
   banner.className = 'show ' + (anyBad?'bad':'ok');
@@ -597,7 +678,7 @@ function play(){
   const ESCAPE_ACCEL = 90, ROT_ACCEL = 55, SPIN_RATE = 3.2;
 
   const start = performance.now();
-  playBtn.disabled = true; newProblemBtn.disabled = true;
+  playBtn.disabled = true; newProblemBtn.disabled = true; resetBtn.disabled = true;
   function frame(now){
     const t = (now-start)/1000;
     const settle = Math.min(1, t/1.1);
@@ -617,7 +698,7 @@ function play(){
     const allStableSettled = result.axial.stable && result.bending.stable && result.torque.stable && settle>=1;
     const anyUnstableFlewAway = (!result.axial.stable && Math.abs(escape.dx)>900) || (!result.bending.stable && Math.abs(escape.dy)>500);
     if(allStableSettled || anyUnstableFlewAway || t>6){
-      playBtn.disabled = false; newProblemBtn.disabled = false;
+      playBtn.disabled = false; newProblemBtn.disabled = false; resetBtn.disabled = false;
       rafId = null;
       return;
     }
@@ -629,9 +710,19 @@ function play(){
 playBtn.addEventListener('click', play);
 newProblemBtn.addEventListener('click', ()=>{
   if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
-  playBtn.disabled=false; newProblemBtn.disabled=false;
+  playBtn.disabled=false; newProblemBtn.disabled=false; resetBtn.disabled=false;
   banner.className=''; banner.innerHTML='';
+  solvedShown = false;
   randomizeLoads();
+  renderStatic();
+});
+resetBtn.addEventListener('click', ()=>{
+  /* Restores the undeformed beam with the SAME loads and reactions already
+     placed, so the student can add or remove reactions and try again. */
+  if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
+  playBtn.disabled=false; newProblemBtn.disabled=false; resetBtn.disabled=false;
+  banner.className=''; banner.innerHTML='';
+  solvedShown = false;
   renderStatic();
 });
 
