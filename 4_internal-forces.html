@@ -437,7 +437,7 @@ function renderTopDiagram(){
    legible even fully loaded with all four revealed values at once. */
 const ZERO_TOL = 1e-6;
 const TYPE_OFFSET = {axial:35, transverse:70, moment:120, torque:170};
-const TYPE_LABEL = {axial:'N(x)', transverse:'V(x)', moment:'M(x)', torque:'T(x)'};
+const TYPE_LABEL = {axial:'F(x)', transverse:'V(x)', moment:'M(x)', torque:'T(x)'};
 const TYPE_UNIT = {axial:'N', transverse:'N', moment:'N·m', torque:'N·m'};
 const TRUE_KEY = {axial:'N', transverse:'V', moment:'M', torque:'T'};
 
@@ -521,7 +521,7 @@ function removePlacement(face, type){
 }
 
 /* ---------- Palette ---------- */
-const REL_LABELS = {axial:'axial N', transverse:'shear V', moment:'moment M', torque:'torque T'};
+const REL_LABELS = {axial:'axial F', transverse:'shear V', moment:'moment M', torque:'torque T'};
 function buildPalette(){
   const row = document.getElementById('paletteRow');
   Array.from(row.querySelectorAll('.palette-group')).forEach(node=>node.remove());
@@ -614,8 +614,14 @@ function endDrag(evt, sourceEl){
 /* ---------- Check ---------- */
 const banner = document.getElementById('resultBanner');
 function checkAnswer(){
+  const trueVals = computeInternal(cutX);
+  const isZeroType = type => Math.abs(trueVals[TRUE_KEY[type]]) < ZERO_TOL;
+
+  /* A channel that's genuinely zero at this cut is never required — leaving
+     it off the diagram is correct, not incomplete. */
   const missing = [];
   ALL_TYPES.forEach(type=>{
+    if(isZeroType(type)) return;
     if(!placements.left[type]) missing.push(`${TYPE_LABEL[type]} on the left face`);
     if(!placements.right[type]) missing.push(`${TYPE_LABEL[type]} on the right face`);
   });
@@ -627,14 +633,14 @@ function checkAnswer(){
     return;
   }
   checked = true;
-  const trueVals = computeInternal(cutX);
   const conventionIssues = [], consistencyIssues = [], zeroNotes = [];
   ALL_TYPES.forEach(type=>{
-    /* A force/moment that's genuinely zero at this cut has no meaningful
-       "direction" to check — call it out as a note instead of grading it
-       right or wrong. */
-    if(Math.abs(trueVals[TRUE_KEY[type]]) < ZERO_TOL){ zeroNotes.push(TYPE_LABEL[type]); return; }
     const Lp = placements.left[type], Rp = placements.right[type];
+    /* A force/moment that's genuinely zero at this cut has no meaningful
+       "direction" to check — if the student placed it anyway, call that
+       out as a note (it could have been left off) instead of grading it
+       right or wrong. If they left it off, say nothing; that's correct. */
+    if(isZeroType(type)){ if(Lp || Rp) zeroNotes.push(TYPE_LABEL[type]); return; }
     if(Lp.dir !== 1) conventionIssues.push(`${TYPE_LABEL[type]} on the LEFT face`);
     if(Rp.dir !== -1) conventionIssues.push(`${TYPE_LABEL[type]} on the RIGHT face`);
     if(Lp.dir + Rp.dir !== 0) consistencyIssues.push(TYPE_LABEL[type]);
@@ -643,7 +649,7 @@ function checkAnswer(){
   const notes = [];
   if(consistencyIssues.length) notes.push(`Not equal-and-opposite (Newton's third law): ${consistencyIssues.join(', ')}.`);
   if(conventionIssues.length) notes.push(`Doesn't match the sign convention: ${conventionIssues.join(', ')}.`);
-  if(zeroNotes.length) notes.push(`Note: ${zeroNotes.join(', ')} ${zeroNotes.length===1?'is':'are'} zero here.`);
+  if(zeroNotes.length) notes.push(`Note: ${zeroNotes.join(', ')} ${zeroNotes.length===1?'is':'are'} zero here and could have been omitted.`);
   banner.className = 'show ' + (allGood?'ok':'bad');
   banner.innerHTML = `<b>${allGood?'Correct!':'Not quite'}</b>` + (notes.length? `<ul>${notes.map(n=>`<li>${n}</li>`).join('')}</ul>` : '');
   renderCutView();
