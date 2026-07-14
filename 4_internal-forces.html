@@ -629,33 +629,43 @@ function endDrag(evt, sourceEl){
 
 /* ---------- Check ----------
    Each of the four channels (F, V, M, T) is graded independently, in full,
-   regardless of what happens with the others:
-     - NECESSARY (nonzero here): both faces are required. Missing either is
-       flagged. If both are present, grade sign convention + consistency.
-     - NOT NECESSARY (zero here) and nothing placed: say nothing, that's fine.
+   regardless of what happens with the others. Sign convention only needs
+   ONE placed face to evaluate, so it's always checked for whatever's
+   there; consistency needs both, so it only runs when both are present:
+     - NECESSARY (nonzero here): both faces are required — missing either
+       is flagged. Whatever IS placed still gets its convention checked
+       even if the other face is missing.
+     - NOT NECESSARY (zero here) and nothing placed: say nothing, that's
+       fine.
      - NOT NECESSARY but at least one face is placed: grade whatever is
-       there (convention for a lone placement; convention + consistency for
-       a full pair), then note that the channel is zero regardless of
-       whether it was graded correct or not.
+       there the same way, then note that the channel is zero regardless
+       of whether it was graded correct or not.
    No channel's missing/wrong verdict ever suppresses another's — every
    channel is checked and reported on its own. */
 const banner = document.getElementById('resultBanner');
-function gradePair(type, Lp, Rp, errors){
-  const leftOk = Lp.dir===1, rightOk = Rp.dir===-1;
-  if(leftOk && rightOk) return;
-  const consistent = Lp.dir + Rp.dir === 0;
-  if(consistent){
-    /* Both faces agree with each other (equal-and-opposite) but they
-       agree on the WRONG direction — one combined message, not two
-       separate per-face complaints. */
-    errors.push(`${TYPE_LABEL[type]} is consistent between the two faces, but does not follow the sign convention.`);
-  } else {
-    /* Exactly one face is wrong here (the other two combinations — both
-       correct, or both flipped — are handled above). Lead with the
-       sign-convention cause, then its consequence: the pair is no longer
-       equal-and-opposite. One grouped message, not two. */
-    const wrongFace = !leftOk ? 'left' : 'right';
-    errors.push(`${TYPE_LABEL[type]} on the ${wrongFace} face does not follow the sign convention, so it is not equal-and-opposite between the two faces (Newton's third law).`);
+function gradeChannel(type, Lp, Rp, errors){
+  const leftOk = Lp ? Lp.dir===1 : null, rightOk = Rp ? Rp.dir===-1 : null;
+  if(Lp && Rp){
+    if(leftOk && rightOk) return;
+    const consistent = Lp.dir + Rp.dir === 0;
+    if(consistent){
+      /* Both faces agree with each other (equal-and-opposite) but they
+         agree on the WRONG direction — one combined message, not two
+         separate per-face complaints. */
+      errors.push(`${TYPE_LABEL[type]} is consistent between the two faces, but does not follow the sign convention.`);
+    } else {
+      /* Exactly one face is wrong here (the other two combinations — both
+         correct, or both flipped — are handled above). Lead with the
+         sign-convention cause, then its consequence: the pair is no
+         longer equal-and-opposite. One grouped message, not two. */
+      const wrongFace = !leftOk ? 'left' : 'right';
+      errors.push(`${TYPE_LABEL[type]} on the ${wrongFace} face does not follow the sign convention, so it is not equal-and-opposite between the two faces (Newton's third law).`);
+    }
+  } else if(Lp || Rp){
+    /* Only one face placed — can't judge consistency, but the sign
+       convention for that lone placement can still be checked. */
+    const isLeft = !!Lp;
+    if(isLeft ? !leftOk : !rightOk) errors.push(`${TYPE_LABEL[type]} on the ${isLeft?'left':'right'} face does not follow the sign convention.`);
   }
 }
 function checkAnswer(){
@@ -667,16 +677,12 @@ function checkAnswer(){
     const Lp = placements.left[type], Rp = placements.right[type];
     if(isZeroType(type)){
       if(!Lp && !Rp) return; // zero and untouched — nothing to do
-      if(Lp && Rp) gradePair(type, Lp, Rp, errors);
-      else {
-        const p = Lp || Rp, isLeft = !!Lp, correctDir = isLeft ? 1 : -1;
-        if(p.dir !== correctDir) errors.push(`${TYPE_LABEL[type]} on the ${isLeft?'left':'right'} face does not follow the sign convention.`);
-      }
+      gradeChannel(type, Lp, Rp, errors);
       notes.push(`${TYPE_LABEL[type]} is zero here.`);
     } else {
       if(!Lp) missing.push(`${TYPE_LABEL[type]} on the left face`);
       if(!Rp) missing.push(`${TYPE_LABEL[type]} on the right face`);
-      if(Lp && Rp) gradePair(type, Lp, Rp, errors);
+      gradeChannel(type, Lp, Rp, errors);
     }
   });
 
