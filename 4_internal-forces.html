@@ -687,6 +687,7 @@ function endDrag(evt, sourceEl){
    No channel's missing/wrong verdict ever suppresses another's — every
    channel is checked and reported on its own. */
 const banner = document.getElementById('resultBanner');
+function bold(type){ return `<b>${TYPE_LABEL[type]}</b>`; }
 function gradeChannel(type, Lp, Rp, errors){
   const leftOk = Lp ? Lp.dir===1 : null, rightOk = Rp ? Rp.dir===-1 : null;
   if(Lp && Rp){
@@ -696,20 +697,20 @@ function gradeChannel(type, Lp, Rp, errors){
       /* Both faces agree with each other (equal-and-opposite) but they
          agree on the WRONG direction — one combined message, not two
          separate per-face complaints. */
-      errors.push(`${TYPE_LABEL[type]} is consistent between the two faces, but does not follow the sign convention.`);
+      errors.push(`${bold(type)} is consistent between the two faces, but does not follow the sign convention.`);
     } else {
       /* Exactly one face is wrong here (the other two combinations — both
          correct, or both flipped — are handled above). Lead with the
          sign-convention cause, then its consequence: the pair is no
          longer equal-and-opposite. One grouped message, not two. */
       const wrongFace = !leftOk ? 'left' : 'right';
-      errors.push(`${TYPE_LABEL[type]} on the ${wrongFace} face does not follow the sign convention, so it is not equal-and-opposite between the two faces (Newton's third law).`);
+      errors.push(`${bold(type)} on the ${wrongFace} face does not follow the sign convention, so it is not equal-and-opposite between the two faces (Newton's third law).`);
     }
   } else if(Lp || Rp){
     /* Only one face placed — can't judge consistency, but the sign
        convention for that lone placement can still be checked. */
     const isLeft = !!Lp;
-    if(isLeft ? !leftOk : !rightOk) errors.push(`${TYPE_LABEL[type]} on the ${isLeft?'left':'right'} face does not follow the sign convention.`);
+    if(isLeft ? !leftOk : !rightOk) errors.push(`${bold(type)} on the ${isLeft?'left':'right'} face does not follow the sign convention.`);
   }
 }
 function checkAnswer(){
@@ -722,26 +723,32 @@ function checkAnswer(){
     if(isZeroType(type)){
       if(!Lp && !Rp) return; // zero and untouched — nothing to do
       if(!Lp || !Rp){
-        /* Partial placement of an optional zero-valued channel: guide the
-           student to either complete the pair or remove the lone
-           placement, instead of separately flagging it missing and
-           noting elsewhere that it's zero. */
-        const missingFace = !Lp ? 'left' : 'right', otherFace = missingFace==='left' ? 'right' : 'left';
-        missing.push(`${TYPE_LABEL[type]} on the ${missingFace} face (${TYPE_LABEL[type]} is zero, but you should either add it on the ${missingFace} face or remove it on the ${otherFace} face)`);
+        /* Partial placement of an optional zero-valued channel — up to
+           two things can be wrong at once: it's incomplete (only one
+           face), and the one face that IS placed might not follow the
+           sign convention. Call out whichever actually applies. */
+        const p = Lp || Rp, isLeft = !!Lp, correctDir = isLeft ? 1 : -1;
+        const dirOk = p.dir === correctDir;
+        if(dirOk){
+          errors.push(`There's an issue with ${bold(type)} — it's zero, so you don't have to include it, but if you do it needs to be included on both sides of the cut.`);
+        } else {
+          errors.push(`There are several issues with ${bold(type)} — it's zero, so you don't have to include it, but if you do it needs to follow the sign convention and it needs to be included on both sides of the cut.`);
+        }
         return;
       }
       gradeChannel(type, Lp, Rp, errors);
-      notes.push(`${TYPE_LABEL[type]} is zero here.`);
+      notes.push(`${bold(type)} is zero here.`);
     } else {
-      if(!Lp) missing.push(`${TYPE_LABEL[type]} on the left face`);
-      if(!Rp) missing.push(`${TYPE_LABEL[type]} on the right face`);
+      if(!Lp) missing.push(`${bold(type)} on the left face`);
+      if(!Rp) missing.push(`${bold(type)} on the right face`);
       gradeChannel(type, Lp, Rp, errors);
     }
   });
 
   checked = true;
-  const headline = missing.length ? 'Incomplete' : (errors.length ? 'Not quite' : 'Correct!');
-  banner.className = 'show ' + (missing.length||errors.length ? 'bad' : 'ok');
+  const hasIssues = missing.length || errors.length;
+  const headline = hasIssues ? 'Not quite' : 'Correct!';
+  banner.className = 'show ' + (hasIssues ? 'bad' : 'ok');
   const allErrors = [...missing.map(m=>`Missing ${m}.`), ...errors];
   let html = `<b>${headline}</b>`;
   if(allErrors.length) html += `<ul class="errors">${allErrors.map(n=>`<li>${n}</li>`).join('')}</ul>`;
