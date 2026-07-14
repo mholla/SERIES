@@ -688,16 +688,22 @@ function endDrag(evt, sourceEl){
    channel is checked and reported on its own. */
 const banner = document.getElementById('resultBanner');
 function bold(type){ return `<b>${TYPE_LABEL[type]}</b>`; }
-function gradeChannel(type, Lp, Rp, errors){
+function gradeChannel(type, Lp, Rp, errors, isZero){
   const leftOk = Lp ? Lp.dir===1 : null, rightOk = Rp ? Rp.dir===-1 : null;
   if(Lp && Rp){
-    if(leftOk && rightOk) return;
+    if(leftOk && rightOk) return false;
     const consistent = Lp.dir + Rp.dir === 0;
     if(consistent){
       /* Both faces agree with each other (equal-and-opposite) but they
          agree on the WRONG direction — one combined message, not two
-         separate per-face complaints. */
-      errors.push(`${bold(type)} is consistent between the two faces, but does not follow the sign convention.`);
+         separate per-face complaints. For a zero-valued channel, fold
+         in the "you didn't have to include this" framing instead of a
+         separate note elsewhere. */
+      errors.push(isZero
+        ? `There's an issue with ${bold(type)} — it's zero, so you don't have to include it, but if you do it needs to follow the sign convention.`
+        : `${bold(type)} is consistent between the two faces, but does not follow the sign convention.`);
+    } else if(isZero){
+      errors.push(`There are several issues with ${bold(type)} — it's zero, so you don't have to include it, but if you do it needs to follow the sign convention and it needs to be equal-and-opposite between the two faces.`);
     } else {
       /* Exactly one face is wrong here (the other two combinations — both
          correct, or both flipped — are handled above). Lead with the
@@ -706,12 +712,20 @@ function gradeChannel(type, Lp, Rp, errors){
       const wrongFace = !leftOk ? 'left' : 'right';
       errors.push(`${bold(type)} on the ${wrongFace} face does not follow the sign convention, so it is not equal-and-opposite between the two faces (Newton's third law).`);
     }
-  } else if(Lp || Rp){
-    /* Only one face placed — can't judge consistency, but the sign
-       convention for that lone placement can still be checked. */
-    const isLeft = !!Lp;
-    if(isLeft ? !leftOk : !rightOk) errors.push(`${bold(type)} on the ${isLeft?'left':'right'} face does not follow the sign convention.`);
+    return true;
   }
+  if(Lp || Rp){
+    /* Only one face placed — can't judge consistency, but the sign
+       convention for that lone placement can still be checked. (Zero
+       channels never reach here: checkAnswer handles their partial-
+       placement case separately, before calling gradeChannel.) */
+    const isLeft = !!Lp;
+    if(isLeft ? !leftOk : !rightOk){
+      errors.push(`${bold(type)} on the ${isLeft?'left':'right'} face does not follow the sign convention.`);
+      return true;
+    }
+  }
+  return false;
 }
 function checkAnswer(){
   const trueVals = computeInternal(cutX);
@@ -736,8 +750,8 @@ function checkAnswer(){
         }
         return;
       }
-      gradeChannel(type, Lp, Rp, errors);
-      notes.push(`${bold(type)} is zero here.`);
+      const hadIssue = gradeChannel(type, Lp, Rp, errors, true);
+      if(!hadIssue) notes.push(`${bold(type)} is zero here.`);
     } else {
       if(!Lp) missing.push(`${bold(type)} on the left face`);
       if(!Rp) missing.push(`${bold(type)} on the right face`);
