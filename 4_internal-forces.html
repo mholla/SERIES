@@ -323,25 +323,33 @@ function vArrow(parent, x, y1, y2, color, width, headSize=8){
   el('line',{x1:x,y1,x2:x,y2,stroke:color,'stroke-width':width,'stroke-linecap':'round'},parent);
   vArrowHead(x,y2,dir,headSize,color,parent);
 }
-/* True half-circle for the internal bending moment AT A CUT FACE — ccw
-   is the rotational sense (what gets checked); openRight is a purely
+/* True half-circle for the internal bending moment AT A CUT FACE — ccw is
+   the rotational sense (what gets checked). Its sweep always runs between
+   standard angle -90° (screen 90°, pointing down) and +90° (screen 270°,
+   pointing up): clockwise (ccw=false) always starts at -90° and rotates
+   up to +90°; counterclockwise is the reverse. openRight is a purely
    cosmetic "which side is open" detail, always forced away from the cut
-   automatically (not a student choice). */
+   automatically (not a student choice) — it only picks which way around
+   (through the east or west side) that same -90°-to-+90° sweep travels,
+   never which endpoint it starts or ends at. */
 function momentHalfArc(parent, cx, cy0, r, ccw, openRight, color, sw=3){
-  const spanStart = openRight ? 90 : 270, spanEnd = spanStart+180, steps=30;
+  const spanStart = ccw ? 270 : 90;
+  const delta = (ccw === openRight) ? -180 : 180;
+  const spanEnd = spanStart + delta;
+  const steps=30;
   let d='';
   for(let i=0;i<=steps;i++){
     const t=i/steps;
-    const ang = ccw ? spanEnd - t*(spanEnd-spanStart) : spanStart + t*(spanEnd-spanStart);
+    const ang = spanStart + t*delta;
     const rad = ang*Math.PI/180;
     const x=cx+r*Math.cos(rad), y=cy0+r*Math.sin(rad);
     d += (i===0?'M ':'L ')+x.toFixed(2)+' '+y.toFixed(2)+' ';
   }
   el('path',{d,fill:'none',stroke:color,'stroke-width':sw,'stroke-linecap':'round'},parent);
-  const tipAng = ccw?spanStart:spanEnd;
+  const tipAng = spanEnd;
   const rad = tipAng*Math.PI/180;
   const tx=cx+r*Math.cos(rad), ty=cy0+r*Math.sin(rad);
-  const sweepSign = ccw?-1:1;
+  const sweepSign = delta>0?1:-1;
   const dx=-r*Math.sin(rad)*sweepSign, dy=r*Math.cos(rad)*sweepSign;
   const tl=Math.hypot(dx,dy)||1, tdx=dx/tl, tdy=dy/tl;
   const size=8, nx=-tdy, ny=tdx;
@@ -546,7 +554,11 @@ function buildPalette(){
     group.className = 'palette-group';
     const pair = document.createElement('div');
     pair.className = 'dir-pair';
-    [1,-1].forEach(dir=>{
+    /* Randomize left/right order of the two direction icons each time —
+       otherwise a student can learn "the left icon goes on the left
+       face" as a shortcut instead of actually reading the arrow. */
+    const dirOrder = Math.random()<0.5 ? [1,-1] : [-1,1];
+    dirOrder.forEach(dir=>{
       const item = document.createElement('div');
       item.className = 'palette-item';
       item.dataset.type = type;
