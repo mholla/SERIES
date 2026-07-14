@@ -460,8 +460,15 @@ function renderPlacements(parent, xf, face){
     const off = TYPE_OFFSET[type];
     let labelX, labelY;
     if(type==='axial'){
-      hArrow(g, xf, CY_CUT, xf+p.dir*off, color, 3, 8);
-      labelX = xf+p.dir*(off+8); labelY = CY_CUT-16;
+      /* Always drawn outside the body, in the same lane regardless of
+         direction — a placement that doesn't follow the sign convention
+         (pointing toward the material) still sits outside the cut face,
+         with the arrowhead pointing IN at the surface, rather than the
+         arrow retreating back over the beam itself. */
+      const ax = xf+gapSide*off;
+      if(p.dir===correctDir) hArrow(g, xf, CY_CUT, ax, color, 3, 8);
+      else hArrow(g, ax, CY_CUT, xf, color, 3, 8);
+      labelX = ax+gapSide*8; labelY = CY_CUT-16;
     } else if(type==='transverse'){
       const vx = xf+gapSide*off, vy1=CY_CUT-BEAM_HH*0.82, vy2=CY_CUT+BEAM_HH*0.82;
       const y1 = p.dir>=0? vy2:vy1, y2 = p.dir>=0? vy1:vy2;
@@ -640,16 +647,13 @@ function checkAnswer(){
        "direction" to check — if the student placed it anyway, call that
        out as a note (it could have been left off) instead of grading it
        right or wrong. If they left it off, say nothing; that's correct. */
-    if(isZeroType(type)){ if(Lp || Rp) zeroNotes.push(TYPE_LABEL[type]); return; }
-    if(Lp.dir !== 1) conventionIssues.push(`${TYPE_LABEL[type]} on the LEFT face`);
-    if(Rp.dir !== -1) conventionIssues.push(`${TYPE_LABEL[type]} on the RIGHT face`);
-    if(Lp.dir + Rp.dir !== 0) consistencyIssues.push(TYPE_LABEL[type]);
+    if(isZeroType(type)){ if(Lp || Rp) zeroNotes.push(`${TYPE_LABEL[type]} is zero here and could have been omitted.`); return; }
+    if(Lp.dir !== 1) conventionIssues.push(`${TYPE_LABEL[type]} on the left face does not follow the sign convention.`);
+    if(Rp.dir !== -1) conventionIssues.push(`${TYPE_LABEL[type]} on the right face does not follow the sign convention.`);
+    if(Lp.dir + Rp.dir !== 0) consistencyIssues.push(`${TYPE_LABEL[type]} is not equal-and-opposite between the two faces (Newton's third law).`);
   });
   const allGood = conventionIssues.length===0 && consistencyIssues.length===0;
-  const notes = [];
-  if(consistencyIssues.length) notes.push(`Not equal-and-opposite (Newton's third law): ${consistencyIssues.join(', ')}.`);
-  if(conventionIssues.length) notes.push(`Doesn't match the sign convention: ${conventionIssues.join(', ')}.`);
-  if(zeroNotes.length) notes.push(`Note: ${zeroNotes.join(', ')} ${zeroNotes.length===1?'is':'are'} zero here and could have been omitted.`);
+  const notes = [...consistencyIssues, ...conventionIssues, ...zeroNotes];
   banner.className = 'show ' + (allGood?'ok':'bad');
   banner.innerHTML = `<b>${allGood?'Correct!':'Not quite'}</b>` + (notes.length? `<ul>${notes.map(n=>`<li>${n}</li>`).join('')}</ul>` : '');
   renderCutView();
