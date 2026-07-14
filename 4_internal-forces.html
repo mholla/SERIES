@@ -532,7 +532,13 @@ function renderPlacements(parent, xf, face){
       torqueGlyph(g, tx, CY_CUT-28, CY_CUT+28, p.dir>=0, color, 2.6);
       labelX = tx; labelY = CY_CUT+78;
     }
-    const suffix = checked ? ` = ${trueVals[TRUE_KEY[type]].toFixed(0)} ${TYPE_UNIT[type]}` : '';
+    /* Revealed value is relative to the direction THIS glyph was drawn
+       in — same "always draw an assumed direction, let the sign say
+       whether that assumption was right" pattern used for reactions —
+       not always the fixed convention-positive value regardless of what
+       the student actually drew. (+0 clears a stray "-0" from sign flip.) */
+    const displayVal = checked ? (trueVals[TRUE_KEY[type]] * (p.dir===correctDir ? 1 : -1) + 0) : null;
+    const suffix = checked ? ` = ${displayVal.toFixed(0)} ${TYPE_UNIT[type]}` : '';
     text(labelX, labelY, TYPE_LABEL[type]+suffix, {'text-anchor':'middle',fill:color,'font-weight':700,'font-size':12}, g);
   });
 }
