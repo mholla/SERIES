@@ -81,8 +81,8 @@
       <p>A beam with random loads and the correct set of supports is cut at a random point. Drag the internal-force glyphs onto BOTH exposed faces, then check — we're looking for equal-and-opposite pairs drawn in the standard sign convention.</p>
     </div>
     <div class="legend">
-      <span><span class="swatch" style="background:var(--force)"></span>load / reaction / internal action</span>
-      <span><span class="swatch" style="background:var(--blue)"></span>your placement</span>
+      <span><span class="swatch" style="background:var(--force)"></span>external forces</span>
+      <span><span class="swatch" style="background:var(--blue)"></span>internal forces</span>
     </div>
   </header>
 
@@ -105,6 +105,7 @@
 
   <div class="controls-row">
     <button class="action-btn primary" id="checkBtn">Check</button>
+    <button class="action-btn" id="resetBtn">Reset</button>
     <button class="action-btn" id="newProblemBtn">New problem</button>
   </div>
 
@@ -465,6 +466,21 @@ function drawAxisIndicator(parent, x0, y0, size=24){
   text(x0-3,y0-size-9,'y',{'font-size':13,'font-weight':700,fill:col,'text-anchor':'middle'},parent);
   el('circle',{cx:x0,cy:y0,r:2,fill:col},parent);
 }
+/* Same wavy-break cut mark used in the section-cut explorers, rather than
+   a plain dashed line, so the cut reads visually consistent across the
+   whole SERIES. */
+function drawWavyBreak(parent, x, hh, color){
+  const y0 = CY_TOP-hh-10, y1 = CY_TOP+hh+10;
+  const steps = 22, amp = 4.5, cycles = 3.2;
+  let d = `M ${x + amp*Math.sin(0)} ${y0}`;
+  for(let i=1;i<=steps;i++){
+    const t = i/steps;
+    const yy = y0 + t*(y1-y0);
+    const xx = x + amp*Math.sin(t*Math.PI*2*cycles);
+    d += ` L ${xx.toFixed(2)} ${yy.toFixed(2)}`;
+  }
+  el('path',{d, fill:'none', stroke:color, 'stroke-width':2.4, 'stroke-linecap':'round'}, parent);
+}
 function renderTopDiagram(){
   const svg = document.getElementById('topSvg');
   svg.innerHTML = '';
@@ -474,7 +490,7 @@ function renderTopDiagram(){
   const labels = reactionLabels();
   reactions.forEach((r,i)=> drawReactionGlyph(g, r, CY_TOP, 'var(--force)', labels[i]));
   const cutXpix = xPix(cutX);
-  el('line',{x1:cutXpix,y1:CY_TOP-BEAM_HH-16,x2:cutXpix,y2:CY_TOP+BEAM_HH+58,stroke:'var(--blue)','stroke-width':2,'stroke-dasharray':'4,3'},g);
+  drawWavyBreak(g, cutXpix, BEAM_HH, 'var(--blue)');
   text(cutXpix, CY_TOP-BEAM_HH-22, 'CUT', {'text-anchor':'middle','font-weight':700,fill:'var(--blue)'}, g);
   drawAxisIndicator(g, 40, 202, 22);
 }
@@ -789,6 +805,15 @@ function checkAnswer(){
 
 document.getElementById('checkBtn').addEventListener('click', checkAnswer);
 document.getElementById('newProblemBtn').addEventListener('click', newProblem);
+/* Reset: removes whatever the student has placed so far, on the SAME
+   problem (cut position and loads unchanged) — a fresh attempt, not a
+   new problem. */
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  placements = { left:{}, right:{} };
+  checked = false;
+  banner.className = ''; banner.innerHTML = '';
+  renderCutView();
+});
 
 /* ---------- Initialize ---------- */
 newProblem();

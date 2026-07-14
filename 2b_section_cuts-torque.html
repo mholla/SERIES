@@ -42,6 +42,8 @@
   .hint-bar #liveReading{color:var(--blue);font-weight:600;}
   #panels{display:none;margin-top:22px;grid-template-columns:1fr 1fr;gap:18px;}
   #panels.show{display:grid;}
+  #plotSection{display:none;}
+  #plotSection.show{display:block;}
   @media (max-width:760px){#panels{grid-template-columns:1fr;}}
   .panel{background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:6px;padding:16px 18px 18px;}
   .panel h3{margin:0 0 12px;font-size:14px;letter-spacing:0.03em;text-transform:uppercase;}
@@ -73,7 +75,7 @@
       <p>How many section cuts do you have to make to determine the internal torque at every point in this shaft?</p>
     </div>
     <div class="legend">
-      <span><span class="swatch" style="background:var(--force)"></span>torque</span>
+      <span><span class="swatch" style="background:var(--force)"></span>forces</span>
       <span><span class="swatch" style="background:var(--blue)"></span>section cut</span>
     </div>
   </header>
@@ -89,7 +91,7 @@
   <div class="stage">
     <svg id="diagram" viewBox="0 0 1100 260" preserveAspectRatio="xMidYMid meet"></svg>
     <div class="hint-bar">
-      <span id="liveReading">Click anywhere to determine the internal torque.</span>
+      <span id="liveReading">Click anywhere to determine the internal forces.</span>
       <span id="xReadout"></span>
     </div>
   </div>
@@ -113,13 +115,16 @@
     </div>
   </div>
 
-  <div class="section-title">Internal torque vs. position</div>
-  <p class="section-sub">Every cut you make above drops a point here. Click a few spots in the same segment and watch them land on top of each other — then jump to the other side of a torque and watch the value snap to something new.</p>
-  <div class="stage">
-    <svg id="forceDiagram" viewBox="0 0 1100 320" preserveAspectRatio="xMidYMid meet"></svg>
+  <div id="plotSection">
+    <div class="section-title">Internal torque vs. position</div>
+    <p class="section-sub">Every cut you make above drops a point here. Click a few spots in the same segment and watch them land on top of each other — then jump to the other side of a torque and watch the value snap to something new.</p>
+    <div class="stage">
+      <svg id="forceDiagram" viewBox="0 0 1100 320" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
   </div>
   <div class="plot-toolbar">
-    <button class="reset-btn" id="resetPlotBtn">Reset</button>
+    <button class="reset-btn" id="resetBtn">Reset</button>
+    <button class="reset-btn" id="newProblemBtn">New problem</button>
   </div>
 
 </div>
@@ -350,6 +355,7 @@ function attemptCut(xin){
   hasCut = true;
   lastCutXin = xin;
   liveReading.textContent = 'Cut made — now try a different segment (on the other side of an applied torque).';
+  document.getElementById('plotSection').classList.add('show');
   renderCut(xin, R);
   plotPoints.push({x:xin, T:R.T});
   renderTorqueDiagram();
@@ -540,16 +546,27 @@ function renderTorqueDiagram(){
   });
 }
 
-document.getElementById('resetPlotBtn').addEventListener('click', ()=>{
+/* Reset: clears the cut and plotted data points but keeps the SAME
+   torques (the shaft itself doesn't change). New problem: rerolls them. */
+function clearCutState(){
   plotPoints.length = 0;
   cutMarkerLayer.innerHTML='';
   svgCut.style.display='none';
   document.getElementById('panels').classList.remove('show');
   document.getElementById('agreement').classList.remove('show');
+  document.getElementById('plotSection').classList.remove('show');
   hasCut = false;
   lastCutXin = null;
-  liveReading.textContent = 'Click anywhere to determine the internal torque.';
+  liveReading.textContent = 'Click anywhere to determine the internal forces.';
   xReadout.textContent = '';
+}
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  clearCutState();
+  buildTopDiagram();
+  renderTorqueDiagram();
+});
+document.getElementById('newProblemBtn').addEventListener('click', ()=>{
+  clearCutState();
   randomizeLoads();
   buildTopDiagram();
   renderTorqueDiagram();

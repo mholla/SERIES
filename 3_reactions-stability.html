@@ -77,8 +77,8 @@
       <p>A random set of loads is applied to this beam. Drag reactions onto it from the palette below, then press Play to see whether you've fully constrained it — or whether it flies away.</p>
     </div>
     <div class="legend">
-      <span><span class="swatch" style="background:var(--force)"></span>applied load</span>
-      <span><span class="swatch" style="background:var(--blue)"></span>your reaction</span>
+      <span><span class="swatch" style="background:var(--force)"></span>external forces</span>
+      <span><span class="swatch" style="background:var(--blue)"></span>reactions</span>
     </div>
   </header>
 
@@ -268,6 +268,17 @@ function torqueGlyph(parent, x, yTop, yBot, ccw, color, sw=3){
   const size=8, nx=-uy, ny=ux;
   const backX=x-ux*size, backY=endY-uy*size;
   el('polygon',{points:`${x},${endY} ${(backX+nx*size*0.55).toFixed(2)},${(backY+ny*size*0.55).toFixed(2)} ${(backX-nx*size*0.55).toFixed(2)},${(backY-ny*size*0.55).toFixed(2)}`,fill:color},parent);
+}
+
+function drawAxisIndicator(parent, x0, y0, size=24){
+  const col = 'var(--steel)';
+  el('line',{x1:x0,y1:y0,x2:x0+size,y2:y0,stroke:col,'stroke-width':1.6},parent);
+  el('polygon',{points:`${x0+size},${y0} ${x0+size-7},${y0-4.3} ${x0+size-7},${y0+4.3}`,fill:col},parent);
+  text(x0+size+9,y0+4,'x',{'font-size':13,'font-weight':700,fill:col},parent);
+  el('line',{x1:x0,y1:y0,x2:x0,y2:y0-size,stroke:col,'stroke-width':1.6},parent);
+  el('polygon',{points:`${x0},${y0-size} ${x0-4.3},${y0-size+7} ${x0+4.3},${y0-size+7}`,fill:col},parent);
+  text(x0-3,y0-size-9,'y',{'font-size':13,'font-weight':700,fill:col,'text-anchor':'middle'},parent);
+  el('circle',{cx:x0,cy:y0,r:2,fill:col},parent);
 }
 
 /* Populate each palette icon by calling the SAME drawing functions used on
@@ -648,6 +659,9 @@ function easeOutCubic(t){ return 1-Math.pow(1-t,3); }
    motion for UNSTABLE channels, unbounded. */
 function renderScene(deform, frac, escape, animating){
   svgStage.innerHTML = '';
+  /* Fixed reference frame, drawn OUTSIDE the transformed root group so it
+     never moves with the beam's deformation or escape animation. */
+  drawAxisIndicator(svgStage, 40, 300, 26);
   const pivotPx = escape.pivotPx!==undefined ? escape.pivotPx : xPix(L/2);
   const root = el('g', {transform:`translate(${escape.dx},${escape.dy}) rotate(${escape.rot} ${pivotPx} ${CY})`}, svgStage);
 

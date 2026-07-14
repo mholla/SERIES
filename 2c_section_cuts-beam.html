@@ -49,6 +49,8 @@
   #reactionsPanel #reactionsContent{margin-top:14px;padding-top:4px;border-top:1px dashed var(--panel-border);}
   #panels{display:none;margin-top:22px;grid-template-columns:1fr 1fr;gap:18px;}
   #panels.show{display:grid;}
+  #plotSection{display:none;}
+  #plotSection.show{display:block;}
   @media (max-width:760px){#panels{grid-template-columns:1fr;}}
   #agreement{display:none;margin-top:16px;}
   #agreement.show{display:block;}
@@ -76,7 +78,7 @@
       <p>How many section cuts do you have to make to determine the internal shear and moment at every point in this beam?</p>
     </div>
     <div class="legend">
-      <span><span class="swatch" style="background:var(--force)"></span>load / internal action</span>
+      <span><span class="swatch" style="background:var(--force)"></span>forces</span>
       <span><span class="swatch" style="background:var(--blue)"></span>section cut</span>
     </div>
   </header>
@@ -84,7 +86,7 @@
   <div class="stage">
     <svg id="diagram" viewBox="0 0 1100 280" preserveAspectRatio="xMidYMid meet"></svg>
     <div class="hint-bar">
-      <span id="liveReading">Click anywhere to determine the internal shear and moment.</span>
+      <span id="liveReading">Click anywhere to determine the internal forces.</span>
       <span id="xReadout"></span>
     </div>
   </div>
@@ -116,23 +118,26 @@
     </div>
   </div>
 
-  <div class="section-title">Shear vs. position</div>
-  <p class="section-sub">Every cut you make above drops a point here. Shear is piecewise constant — it only jumps where a concentrated load or reaction acts.</p>
-  <div class="stage">
-    <svg id="shearDiagram" viewBox="0 0 1100 190" preserveAspectRatio="xMidYMid meet"></svg>
-  </div>
+  <div id="plotSection">
+    <div class="section-title">Shear vs. position</div>
+    <p class="section-sub">Every cut you make above drops a point here. Shear is piecewise constant — it only jumps where a concentrated load or reaction acts.</p>
+    <div class="stage">
+      <svg id="shearDiagram" viewBox="0 0 1100 190" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
 
-  <div class="section-title">Moment vs. position</div>
-  <p class="section-sub">Moment is piecewise linear between loads — its slope changes wherever shear jumps. Watch it jump only where the applied couple at E acts.</p>
-  <div class="stage">
-    <svg id="momentDiagram" viewBox="0 0 1100 190" preserveAspectRatio="xMidYMid meet"></svg>
-  </div>
+    <div class="section-title">Moment vs. position</div>
+    <p class="section-sub">Moment is piecewise linear between loads — its slope changes wherever shear jumps. Watch it jump only where the applied couple at E acts.</p>
+    <div class="stage">
+      <svg id="momentDiagram" viewBox="0 0 1100 190" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
 
-  <div class="stage">
-    <svg id="bottomSchematic" viewBox="0 0 1100 190" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="stage">
+      <svg id="bottomSchematic" viewBox="0 0 1100 190" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
   </div>
   <div class="plot-toolbar">
-    <button class="reset-btn" id="resetPlotBtn">Reset</button>
+    <button class="reset-btn" id="resetBtn">Reset</button>
+    <button class="reset-btn" id="newProblemBtn">New problem</button>
   </div>
 
 </div>
@@ -351,7 +356,7 @@ function drawDimensionLine(parent, y){
     el('line',{x1,y1:y-6,x2:x1,y2:y+6,stroke:'var(--steel)','stroke-width':1},parent);
     el('line',{x1:x2,y1:y-6,x2:x2,y2:y+6,stroke:'var(--steel)','stroke-width':1},parent);
     dimArrow(parent, x1, x2, y);
-    text((x1+x2)/2, y+16, `${(pts[i+1]-pts[i]).toFixed(0)} m`, {'text-anchor':'middle','font-size':11,fill:'var(--steel)'}, parent);
+    text((x1+x2)/2, y+16, `a = ${(pts[i+1]-pts[i]).toFixed(0)} m`, {'text-anchor':'middle','font-size':11,fill:'var(--steel)'}, parent);
   }
 }
 
@@ -448,6 +453,7 @@ function attemptCut(xm){
   hasCut = true;
   lastCutXm = xm;
   liveReading.textContent = 'Cut made — now try a different segment (on the other side of a load or support).';
+  document.getElementById('plotSection').classList.add('show');
   renderCut(xm, R);
   plotV.push({x:xm, V:R.V});
   plotM.push({x:xm, M:R.M});
@@ -660,16 +666,31 @@ function renderBottomSchematic(){
   text((xPix(posM.A)+xPix(posM.E))/2, cy+BEAM_HH+65+34, 'x (m)', {'text-anchor':'middle','font-size':11,fill:'var(--steel)'},g);
 }
 
-document.getElementById('resetPlotBtn').addEventListener('click', ()=>{
+/* Reset: clears the cut and plotted data points but keeps the SAME beam
+   loading (same reactions too, since they follow from the loads). New
+   problem: rerolls the loads and re-solves the reactions. */
+function clearCutState(){
   plotV.length = 0; plotM.length = 0;
   cutMarkerLayer.innerHTML='';
   svgCut.style.display='none';
   document.getElementById('panels').classList.remove('show');
   document.getElementById('agreement').classList.remove('show');
+  document.getElementById('plotSection').classList.remove('show');
   hasCut = false;
   lastCutXm = null;
-  liveReading.textContent = 'Click anywhere to determine the internal shear and moment.';
+  liveReading.textContent = 'Click anywhere to determine the internal forces.';
   xReadout.textContent = '';
+}
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  clearCutState();
+  buildTopDiagram();
+  computeRanges();
+  renderShearDiagram();
+  renderMomentDiagram();
+  renderBottomSchematic();
+});
+document.getElementById('newProblemBtn').addEventListener('click', ()=>{
+  clearCutState();
   randomizeLoads();
   renderReactionsPanel();
   buildTopDiagram();
