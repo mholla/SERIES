@@ -84,17 +84,16 @@
     </div>
   </header>
 
-  <div class="panel-label">x — right &nbsp; y — up</div>
+  <div class="panel-label">Beam</div>
   <div class="stage">
     <svg id="topSvg" class="stagesvg" viewBox="0 0 1100 220" preserveAspectRatio="xMidYMid meet"></svg>
   </div>
 
   <div class="panel-label" style="margin-top:20px;">Free bodies at the cut</div>
   <div class="stage">
-    <svg id="cutSvg" class="stagesvg" viewBox="-100 0 1300 420" preserveAspectRatio="xMidYMid meet"></svg>
+    <svg id="cutSvg" class="stagesvg" viewBox="-220 0 1540 420" preserveAspectRatio="xMidYMid meet"></svg>
     <div class="drop-hint">
       <span id="hintText">Drag an internal-force glyph onto the LEFT or RIGHT cut face. Click a placed glyph to remove it.</span>
-      <span id="countText"></span>
     </div>
   </div>
 
@@ -121,7 +120,7 @@ const X0 = 130, SCALE = 84;   /* px per m */
 const CY_TOP = 100;
 const CY_CUT = 190;
 const BEAM_HH = 16;
-const GAP = 170;               /* half-separation between the two cut pieces */
+const GAP = 280;               /* half-separation between the two cut pieces */
 function xPix(x){ return X0 + x*SCALE; }
 function xOf(px){ return (px-X0)/SCALE; }
 
@@ -274,16 +273,12 @@ function computeInternal(x){
   return {N,V,M,T};
 }
 
-function relevantTypes(){
-  const axialPresent = loads.some(l=>l.type==='axial') || reactions.some(r=>r.type==='axial');
-  const bendingPresent = loads.some(l=>l.type==='transverse'||l.type==='moment') || reactions.some(r=>r.type==='transverse'||r.type==='moment');
-  const torquePresent = loads.some(l=>l.type==='torque') || reactions.some(r=>r.type==='torque');
-  const types = [];
-  if(axialPresent) types.push('axial');
-  if(bendingPresent){ types.push('transverse'); types.push('moment'); }
-  if(torquePresent) types.push('torque');
-  return types;
-}
+/* All four internal-force types are always available to place — even a
+   pure torque problem offers shear and moment glyphs, because correctly
+   recognizing that a channel is entirely absent (drop it, it's zero) is
+   itself part of the skill, not something to hide by pre-filtering the
+   palette. */
+const ALL_TYPES = ['axial','transverse','moment','torque'];
 
 function newProblem(){
   randomizeLoads();
@@ -411,6 +406,16 @@ function reactionLabels(){
 }
 
 /* ---------- Rendering ---------- */
+function drawAxisIndicator(parent, x0, y0, size=24){
+  const col = 'var(--steel)';
+  el('line',{x1:x0,y1:y0,x2:x0+size,y2:y0,stroke:col,'stroke-width':1.6},parent);
+  el('polygon',{points:`${x0+size},${y0} ${x0+size-7},${y0-4.3} ${x0+size-7},${y0+4.3}`,fill:col},parent);
+  text(x0+size+9,y0+4,'x',{'font-size':13,'font-weight':700,fill:col},parent);
+  el('line',{x1:x0,y1:y0,x2:x0,y2:y0-size,stroke:col,'stroke-width':1.6},parent);
+  el('polygon',{points:`${x0},${y0-size} ${x0-4.3},${y0-size+7} ${x0+4.3},${y0-size+7}`,fill:col},parent);
+  text(x0-3,y0-size-9,'y',{'font-size':13,'font-weight':700,fill:col,'text-anchor':'middle'},parent);
+  el('circle',{cx:x0,cy:y0,r:2,fill:col},parent);
+}
 function renderTopDiagram(){
   const svg = document.getElementById('topSvg');
   svg.innerHTML = '';
@@ -422,18 +427,16 @@ function renderTopDiagram(){
   const cutXpix = xPix(cutX);
   el('line',{x1:cutXpix,y1:CY_TOP-BEAM_HH-16,x2:cutXpix,y2:CY_TOP+BEAM_HH+58,stroke:'var(--teal)','stroke-width':2,'stroke-dasharray':'4,3'},g);
   text(cutXpix, CY_TOP-BEAM_HH-22, 'CUT', {'text-anchor':'middle','font-weight':700,fill:'var(--teal)'}, g);
+  drawAxisIndicator(g, 40, 202, 22);
 }
 
-/* A problem is EITHER the torque group OR the bending group (never both,
-   per the load-generation split), so at most 3 types ever coexist at once
-   (N+V+M, or N+T) — transverse and torque can safely share a horizontal
-   lane since they never appear together. Each type also gets its own
-   VERTICAL label band (V above the beam, N at mid-height, M/T below, at
-   different depths) so labels don't collide even when their glyphs sit
-   at similar x — the earlier all-in-one-band layout produced completely
-   illegible overlapping text once labels grew long enough to include a
-   revealed value. */
-const TYPE_OFFSET = {axial:30, transverse:55, moment:95, torque:55};
+/* All four types can now coexist on a face (even a pure torque problem
+   gets V and M glyphs, since they're always offered), so each needs its
+   own distinct horizontal lane AND vertical label band — V above the
+   beam, N at mid-height, M below-near, T below-far — so labels stay
+   legible even fully loaded with all four revealed values at once. */
+const ZERO_TOL = 1e-6;
+const TYPE_OFFSET = {axial:35, transverse:70, moment:120, torque:170};
 const TYPE_LABEL = {axial:'N(x)', transverse:'V(x)', moment:'M(x)', torque:'T(x)'};
 const TYPE_UNIT = {axial:'N', transverse:'N', moment:'N·m', torque:'N·m'};
 const TRUE_KEY = {axial:'N', transverse:'V', moment:'M', torque:'T'};
@@ -446,8 +449,12 @@ function renderPlacements(parent, xf, face){
   const slots = placements[face];
   Object.keys(slots).forEach(type=>{
     const p = slots[type];
-    const ok = checked ? (p.dir===correctDir) : null;
-    const color = checked ? (ok? 'var(--teal)' : 'var(--force)') : 'var(--teal)';
+    const isZero = checked && Math.abs(trueVals[TRUE_KEY[type]]) < ZERO_TOL;
+    /* Direction doesn't mean anything for a force that's actually zero —
+       don't mark it right or wrong, just neutral; it gets called out as
+       a note in the result banner instead. */
+    const ok = checked && !isZero ? (p.dir===correctDir) : null;
+    const color = !checked ? 'var(--teal)' : isZero ? 'var(--steel)' : (ok? 'var(--teal)' : 'var(--force)');
     const g = el('g',{style:'cursor:pointer'},parent);
     g.addEventListener('click', ()=>removePlacement(face,type));
     const off = TYPE_OFFSET[type];
@@ -459,15 +466,15 @@ function renderPlacements(parent, xf, face){
       const vx = xf+gapSide*off, vy1=CY_CUT-BEAM_HH*0.82, vy2=CY_CUT+BEAM_HH*0.82;
       const y1 = p.dir>=0? vy2:vy1, y2 = p.dir>=0? vy1:vy2;
       vArrow(g, vx, y1, y2, color, 3, 8);
-      labelX = vx; labelY = vy1-9;
+      labelX = vx; labelY = CY_CUT-45;
     } else if(type==='moment'){
       const mx = xf+gapSide*off;
       momentHalfArc(g, mx, CY_CUT, 15, p.dir>=0, !isLeft, color, 2.6);
-      labelX = mx; labelY = CY_CUT+15+22;
+      labelX = mx; labelY = CY_CUT+45;
     } else if(type==='torque'){
       const tx = xf+gapSide*off;
       torqueGlyph(g, tx, CY_CUT-28, CY_CUT+28, p.dir>=0, color, 2.6);
-      labelX = tx; labelY = CY_CUT+28+22;
+      labelX = tx; labelY = CY_CUT+78;
     }
     const suffix = checked ? ` = ${trueVals[TRUE_KEY[type]].toFixed(0)} ${TYPE_UNIT[type]}` : '';
     text(labelX, labelY, TYPE_LABEL[type]+suffix, {'text-anchor':'middle',fill:color,'font-weight':700,'font-size':12}, g);
@@ -498,7 +505,7 @@ function renderCutView(){
   text(rbX-4, 26, 'RIGHT FREE BODY', {'font-size':13,'font-weight':700,fill:'var(--ink)','text-anchor':'end'},g);
   renderPlacements(g, raX, 'right');
 
-  document.getElementById('countText').textContent = `${Object.keys(placements.left).length + Object.keys(placements.right).length} of ${relevantTypes().length*2} placed`;
+  drawAxisIndicator(g, -70, 395, 22);
 }
 
 function renderAll(){
@@ -518,8 +525,7 @@ const REL_LABELS = {axial:'axial N', transverse:'shear V', moment:'moment M', to
 function buildPalette(){
   const row = document.getElementById('paletteRow');
   Array.from(row.querySelectorAll('.palette-group')).forEach(node=>node.remove());
-  const types = relevantTypes();
-  types.forEach(type=>{
+  ALL_TYPES.forEach(type=>{
     const group = document.createElement('div');
     group.className = 'palette-group';
     const pair = document.createElement('div');
@@ -608,9 +614,8 @@ function endDrag(evt, sourceEl){
 /* ---------- Check ---------- */
 const banner = document.getElementById('resultBanner');
 function checkAnswer(){
-  const types = relevantTypes();
   const missing = [];
-  types.forEach(type=>{
+  ALL_TYPES.forEach(type=>{
     if(!placements.left[type]) missing.push(`${TYPE_LABEL[type]} on the left face`);
     if(!placements.right[type]) missing.push(`${TYPE_LABEL[type]} on the right face`);
   });
@@ -622,8 +627,13 @@ function checkAnswer(){
     return;
   }
   checked = true;
-  const conventionIssues = [], consistencyIssues = [];
-  types.forEach(type=>{
+  const trueVals = computeInternal(cutX);
+  const conventionIssues = [], consistencyIssues = [], zeroNotes = [];
+  ALL_TYPES.forEach(type=>{
+    /* A force/moment that's genuinely zero at this cut has no meaningful
+       "direction" to check — call it out as a note instead of grading it
+       right or wrong. */
+    if(Math.abs(trueVals[TRUE_KEY[type]]) < ZERO_TOL){ zeroNotes.push(TYPE_LABEL[type]); return; }
     const Lp = placements.left[type], Rp = placements.right[type];
     if(Lp.dir !== 1) conventionIssues.push(`${TYPE_LABEL[type]} on the LEFT face`);
     if(Rp.dir !== -1) conventionIssues.push(`${TYPE_LABEL[type]} on the RIGHT face`);
@@ -633,6 +643,7 @@ function checkAnswer(){
   const notes = [];
   if(consistencyIssues.length) notes.push(`Not equal-and-opposite (Newton's third law): ${consistencyIssues.join(', ')}.`);
   if(conventionIssues.length) notes.push(`Doesn't match the sign convention: ${conventionIssues.join(', ')}.`);
+  if(zeroNotes.length) notes.push(`Note: ${zeroNotes.join(', ')} ${zeroNotes.length===1?'is':'are'} zero here.`);
   banner.className = 'show ' + (allGood?'ok':'bad');
   banner.innerHTML = `<b>${allGood?'Correct!':'Not quite'}</b>` + (notes.length? `<ul>${notes.map(n=>`<li>${n}</li>`).join('')}</ul>` : '');
   renderCutView();
