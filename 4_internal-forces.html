@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Internal Forces at a Cut</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EFF2ED; --ink:#1B2B3A; --steel:#78838F; --steel-light:#C7CEC6;
+    --force:#AE3527; --teal:#1F7A6C; --teal-soft:#D6E7E2;
+    --panel-bg:#FFFFFF; --panel-border:#D7DBD1; --warn:#B8860B;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans',sans-serif;-webkit-font-smoothing:antialiased;}
+  .app{max-width:1180px;margin:0 auto;padding:28px 24px 60px;}
+  header{border-bottom:2px solid var(--ink);padding-bottom:16px;margin-bottom:6px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;}
+  .title-block .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--steel);}
+  .title-block h1{margin:2px 0 4px;font-size:26px;font-weight:600;letter-spacing:-0.01em;}
+  .title-block p{margin:0;font-size:14px;color:var(--steel);max-width:680px;}
+  .legend{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--steel);display:flex;gap:16px;flex-wrap:wrap;}
+  .legend span{display:inline-flex;align-items:center;gap:6px;}
+  .swatch{width:12px;height:12px;border-radius:2px;display:inline-block;}
+
+  .panel-label{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--steel);letter-spacing:0.06em;text-transform:uppercase;margin:18px 0 4px;}
+  .stage{position:relative;background:var(--panel-bg);border:1px solid var(--panel-border);border-radius:6px;padding:6px 6px 0;}
+  svg.stagesvg{width:100%;display:block;}
+  .drop-hint{display:flex;justify-content:space-between;align-items:center;font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:var(--steel);padding:8px 14px 12px;border-top:1px dashed var(--panel-border);}
+
+  .palette-row{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-top:16px;}
+  .palette-label{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--steel);letter-spacing:0.04em;text-transform:uppercase;margin-right:2px;margin-bottom:9px;}
+  .palette-group{
+    display:flex;flex-direction:column;align-items:center;gap:5px;
+    padding:7px 8px;border:1.5px solid var(--teal);border-radius:8px;background:var(--teal-soft);
+  }
+  .dir-pair{display:flex;gap:3px;}
+  .palette-item{
+    display:flex;align-items:center;justify-content:center;
+    width:36px;height:36px;border-radius:6px;
+    cursor:grab;user-select:none;touch-action:none;
+  }
+  .palette-item:hover{background:rgba(255,255,255,0.55);}
+  .palette-item:active{cursor:grabbing;}
+  .palette-item svg{width:30px;height:30px;display:block;}
+  .palette-group .plabel{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--ink);font-weight:600;}
+  .palette-item.dragging{opacity:0.35;}
+
+  .ghost{position:fixed;pointer-events:none;width:38px;height:38px;z-index:50;opacity:0.85;transform:translate(-50%,-50%);}
+
+  .controls-row{display:flex;justify-content:flex-start;align-items:center;flex-wrap:wrap;gap:10px;margin-top:18px;}
+  button.action-btn{
+    font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:13px;
+    border:1.5px solid var(--ink);background:transparent;color:var(--ink);
+    padding:8px 18px;border-radius:4px;cursor:pointer;
+  }
+  button.action-btn:hover{background:var(--ink);color:var(--paper);}
+  button.action-btn.primary{background:var(--ink);color:var(--paper);}
+  button.action-btn.primary:hover{background:var(--teal);border-color:var(--teal);}
+  button.action-btn:disabled{opacity:0.4;cursor:default;}
+  button.action-btn:disabled:hover{background:transparent;color:var(--ink);}
+
+  #resultBanner{display:none;margin-top:16px;border-radius:6px;padding:14px 18px;font-size:14px;line-height:1.5;}
+  #resultBanner.show{display:block;}
+  #resultBanner.ok{border:1.5px solid var(--teal);background:var(--teal-soft);}
+  #resultBanner.bad{border:1.5px solid var(--force);background:#F6E4E1;}
+  #resultBanner > b{display:block;font-size:15px;margin-bottom:4px;}
+  #resultBanner ul{margin:6px 0 0;padding-left:18px;}
+  #resultBanner .notes-label{margin:10px 0 0;font-size:12px;letter-spacing:0.03em;text-transform:uppercase;color:var(--steel);}
+  #resultBanner .notes{color:var(--steel);}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header>
+    <div class="title-block">
+      <div class="eyebrow">SERIES · Internal Forces</div>
+      <h1>Internal Forces at a Cut</h1>
+      <p>A beam with random loads and the correct set of supports is cut at a random point. Drag the internal-force glyphs onto BOTH exposed faces, then check — we're looking for equal-and-opposite pairs drawn in the standard sign convention.</p>
+    </div>
+    <div class="legend">
+      <span><span class="swatch" style="background:var(--force)"></span>load / reaction / internal action</span>
+      <span><span class="swatch" style="background:var(--teal)"></span>your placement</span>
+    </div>
+  </header>
+
+  <div class="panel-label">Beam</div>
+  <div class="stage">
+    <svg id="topSvg" class="stagesvg" viewBox="0 0 1100 220" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
+
+  <div class="panel-label" style="margin-top:20px;">Free bodies at the cut</div>
+  <div class="stage">
+    <svg id="cutSvg" class="stagesvg" viewBox="-220 0 1540 420" preserveAspectRatio="xMidYMid meet"></svg>
+    <div class="drop-hint">
+      <span id="hintText">Drag an internal-force glyph onto the LEFT or RIGHT cut face. Click a placed glyph to remove it.</span>
+    </div>
+  </div>
+
+  <div class="palette-row" id="paletteRow">
+    <span class="palette-label">Add internal force:</span>
+  </div>
+
+  <div class="controls-row">
+    <button class="action-btn primary" id="checkBtn">Check</button>
+    <button class="action-btn" id="newProblemBtn">New problem</button>
+  </div>
+
+  <div id="resultBanner"></div>
+
+</div>
+
+<div id="ghostLayer"></div>
+
+<script>
+/* ---------- Geometry / constants ---------- */
+const NS = "http://www.w3.org/2000/svg";
+const L = 10;                 /* beam length, m (abstract) */
+const X0 = 130, SCALE = 84;   /* px per m */
+const CY_TOP = 100;
+const CY_CUT = 190;
+const BEAM_HH = 16;
+const GAP = 280;               /* half-separation between the two cut pieces */
+function xPix(x){ return X0 + x*SCALE; }
+function xOf(px){ return (px-X0)/SCALE; }
+
+function el(tag, attrs, parent){
+  const e = document.createElementNS(NS, tag);
+  for(const k in attrs) if(attrs[k]!==null && attrs[k]!==undefined) e.setAttribute(k, attrs[k]);
+  if(parent) parent.appendChild(e);
+  return e;
+}
+function text(x,y,str,attrs,parent){
+  const t = el('text', Object.assign({x,y,'font-family':"IBM Plex Mono, monospace",'font-size':12.5,fill:'var(--ink)'}, attrs), parent);
+  t.textContent = str;
+  return t;
+}
+function subLabel(parent, x, y, base, sub, suffix, attrs, color){
+  const t = el('text', Object.assign({x,y,'font-family':"IBM Plex Mono, monospace",'font-size':12.5,fill:color||'var(--ink)','font-weight':700}, attrs), parent);
+  const t1 = el('tspan',{},t); t1.textContent = base;
+  if(sub){ const t2 = el('tspan',{dy:3,'font-size':9},t); t2.textContent = sub; const t3 = el('tspan',{dy:-3},t); t3.textContent = suffix||''; }
+  else { const t3 = el('tspan',{},t); t3.textContent = suffix||''; }
+  return t;
+}
+
+/* ---------- Data model ----------
+   loads: {type:'axial'|'transverse'|'moment'|'torque', x, val} — random,
+   fixed, val is the TRUE signed value (+axial=+x, +transverse=+y/up,
+   +moment=CCW, +torque=RHR about +x).
+   reactions: same shape as loads, but AUTO-GENERATED (the "right number
+   and kind" for a statically determinate problem) and solved so the whole
+   beam is in equilibrium — these are GIVEN to the student, not something
+   they place.
+   cutX: a random position, never exactly on a load or reaction.
+   placements: {left:{axial,transverse,moment,torque}, right:{...}}, each
+   slot either undefined or {dir:+1|-1} — what the STUDENT dragged in. */
+let loads = [], reactions = [], cutX = null;
+let placements = { left:{}, right:{} };
+let checked = false;
+
+const TYPE_GROUPS = [ ['axial','torque'], ['axial','transverse','moment'] ];
+function rand50(lo, hi){
+  const steps = Math.round((hi-lo)/50);
+  return lo + 50*Math.floor(Math.random()*(steps+1));
+}
+function randSignedVal(lo, hi){ return (Math.random()<0.5?-1:1) * rand50(lo,hi); }
+
+function physVal(it){ return it.dir!==undefined ? it.val*it.dir : it.val; }
+
+function randomizeLoads(){
+  const typeOptions = TYPE_GROUPS[Math.floor(Math.random()*TYPE_GROUPS.length)];
+  const n = 1 + Math.floor(Math.random()*3);
+  const usedX = [];
+  loads = [];
+  for(let i=0;i<n;i++){
+    const type = typeOptions[Math.floor(Math.random()*typeOptions.length)];
+    let x;
+    do { x = 1 + Math.round(Math.random()*8); } while(usedX.includes(x));
+    usedX.push(x);
+    const val = (type==='moment'||type==='torque') ? randSignedVal(100,1500) : randSignedVal(100,800);
+    loads.push({type, x, val});
+  }
+}
+
+/* The "right number and kind" of reactions for a determinate problem:
+   bending gets either two transverse (simply supported) or a transverse+
+   moment pair at one end (cantilever); torque/axial each get a single
+   reaction at a randomly chosen end, only if that channel is loaded. */
+function buildReactions(){
+  const axialPresent = loads.some(l=>l.type==='axial');
+  const bendingPresent = loads.some(l=>l.type==='transverse'||l.type==='moment');
+  const torquePresent = loads.some(l=>l.type==='torque');
+  reactions = [];
+  if(bendingPresent){
+    if(Math.random()<0.5){
+      reactions.push({type:'transverse', x:0, dir:1, val:0});
+      reactions.push({type:'transverse', x:L, dir:1, val:0});
+    } else {
+      const end = Math.random()<0.5 ? 0 : L;
+      reactions.push({type:'transverse', x:end, dir:1, val:0});
+      reactions.push({type:'moment', x:end, dir:1, val:0});
+    }
+  }
+  if(torquePresent){
+    const end = Math.random()<0.5 ? 0 : L;
+    reactions.push({type:'torque', x:end, dir:1, val:0});
+  }
+  if(axialPresent){
+    const end = Math.random()<0.5 ? 0 : L;
+    reactions.push({type:'axial', x:end, dir:1, val:0});
+  }
+}
+
+/* Always exactly determinate by construction, so a direct (not
+   minimum-norm) solve — verified against 200 randomized trials plus a
+   hand-worked simply-supported case before wiring into the UI. */
+function solveReactions(){
+  ['axial','torque'].forEach(type=>{
+    const r = reactions.find(rr=>rr.type===type);
+    if(!r) return;
+    const net = loads.filter(l=>l.type===type).reduce((s,l)=>s+l.val,0);
+    r.val = -net/r.dir;
+  });
+  const bendR = reactions.filter(r=>r.type==='transverse'||r.type==='moment');
+  if(bendR.length===2){
+    const columns = bendR.map(r=> r.type==='transverse' ? [r.dir, r.dir*r.x] : [0, r.dir]);
+    let fyLoad=0, mLoad=0;
+    loads.forEach(l=>{
+      if(l.type==='transverse'){ fyLoad+=l.val; mLoad+=l.val*l.x; }
+      else if(l.type==='moment') mLoad+=l.val;
+    });
+    const a=columns[0][0], b=columns[1][0], c=columns[0][1], d=columns[1][1];
+    const e=-fyLoad, f=-mLoad;
+    const det = a*d-b*c;
+    bendR[0].val = (e*d-b*f)/det;
+    bendR[1].val = (a*f-e*c)/det;
+  }
+}
+
+/* Cut strictly inside a gap between two adjacent "event" positions (loads,
+   reactions, or the beam ends) wide enough to leave clear margin. */
+function pickCutX(){
+  const events = [0, L, ...loads.map(l=>l.x), ...reactions.map(r=>r.x)];
+  const uniq = [...new Set(events)].sort((a,b)=>a-b);
+  const gaps = [];
+  for(let i=0;i<uniq.length-1;i++){
+    const w = uniq[i+1]-uniq[i];
+    if(w >= 0.8) gaps.push([uniq[i], uniq[i+1]]);
+  }
+  if(gaps.length===0) return L/2;
+  const [a,b] = gaps[Math.floor(Math.random()*gaps.length)];
+  const margin = Math.min(0.3, (b-a)*0.25);
+  return a + margin + Math.random()*((b-a)-2*margin);
+}
+
+/* Method of sections, verified: the internal action at a cut is the
+   NEGATIVE of everything already attached to the left piece (equilibrium
+   of that piece), for axial/shear/torque; bending moment additionally
+   needs the lever-arm term and a sign flip for pure applied couples
+   (verified earlier against a hand-worked cantilever). */
+function computeInternal(x){
+  const items = loads.concat(reactions);
+  const left = items.filter(it=>it.x<x);
+  const N = -left.filter(it=>it.type==='axial').reduce((s,it)=>s+physVal(it),0);
+  const V = -left.filter(it=>it.type==='transverse').reduce((s,it)=>s+physVal(it),0);
+  const T = -left.filter(it=>it.type==='torque').reduce((s,it)=>s+physVal(it),0);
+  let M=0;
+  left.forEach(it=>{
+    const v = physVal(it);
+    if(it.type==='transverse') M += v*(x-it.x);
+    else if(it.type==='moment') M -= v;
+  });
+  return {N,V,M,T};
+}
+const ZERO_TOL = 1e-6;
+const TRUE_KEY = {axial:'N', transverse:'V', moment:'M', torque:'T'};
+function isAllZeroCut(x){
+  const v = computeInternal(x);
+  return Math.abs(v.N)<ZERO_TOL && Math.abs(v.V)<ZERO_TOL && Math.abs(v.M)<ZERO_TOL && Math.abs(v.T)<ZERO_TOL;
+}
+
+/* All four internal-force types are always available to place — even a
+   pure torque problem offers shear and moment glyphs, because correctly
+   recognizing that a channel is entirely absent (drop it, it's zero) is
+   itself part of the skill, not something to hide by pre-filtering the
+   palette. */
+const ALL_TYPES = ['axial','transverse','moment','torque'];
+
+function newProblem(){
+  /* A cut with nothing but zeros on every channel is a degenerate
+     problem (nothing to check) — regenerate until the cut sees at
+     least one nonzero internal action. */
+  for(let attempt=0; attempt<40; attempt++){
+    if(attempt===0 || attempt%8===0){ randomizeLoads(); buildReactions(); solveReactions(); }
+    cutX = pickCutX();
+    if(!isAllZeroCut(cutX)) break;
+  }
+  placements = { left:{}, right:{} };
+  checked = false;
+  banner.className = ''; banner.innerHTML = '';
+  buildPalette();
+  renderAll();
+}
+
+/* ---------- Glyph drawing ----------
+   Same drawing functions used for the palette icons AND the placed
+   glyphs — never two separately hand-authored versions — so a chosen
+   direction can never visually drift from what actually gets placed. */
+function hArrow(parent, x1, y, x2, color, width, headSize=8){
+  const dir = x2>x1 ? 1 : -1;
+  el('line',{x1,y1:y,x2,y2:y,stroke:color,'stroke-width':width,'stroke-linecap':'round'},parent);
+  const pts = `${x2},${y} ${x2-dir*headSize},${y-headSize*0.62} ${x2-dir*headSize},${y+headSize*0.62}`;
+  el('polygon',{points:pts,fill:color},parent);
+}
+function vArrowHead(x,y,dir,size,color,parent){
+  const pts = `${x},${y} ${x-size*0.62},${y-dir*size} ${x+size*0.62},${y-dir*size}`;
+  el('polygon', {points:pts, fill:color}, parent);
+}
+function vArrow(parent, x, y1, y2, color, width, headSize=8){
+  const dir = y2>y1 ? 1 : -1;
+  el('line',{x1:x,y1,x2:x,y2,stroke:color,'stroke-width':width,'stroke-linecap':'round'},parent);
+  vArrowHead(x,y2,dir,headSize,color,parent);
+}
+/* True half-circle for the internal bending moment AT A CUT FACE — ccw is
+   the rotational sense (what gets checked): increasing angle in this
+   screen-coordinate system (y grows downward) reads as clockwise, so
+   ccw=false always sweeps with increasing angle and ccw=true with
+   decreasing angle, regardless of which side is drawn. openRight is a
+   purely cosmetic "which side is open" detail, always forced away from
+   the cut automatically (not a student choice) — because true clockwise
+   or counterclockwise rotation can only pass through ONE specific side
+   for a given pair of endpoints, honoring both openRight AND a fixed
+   rotational sense means the absolute start/end angles necessarily flip
+   between the two openRight cases; that's expected, not a bug — the
+   rotational sense is what's graded, not the absolute start angle. */
+function momentHalfArc(parent, cx, cy0, r, ccw, openRight, color, sw=3){
+  const spanStart = openRight ? 90 : 270, spanEnd = spanStart+180, steps=30;
+  let d='';
+  for(let i=0;i<=steps;i++){
+    const t=i/steps;
+    const ang = ccw ? spanEnd - t*(spanEnd-spanStart) : spanStart + t*(spanEnd-spanStart);
+    const rad = ang*Math.PI/180;
+    const x=cx+r*Math.cos(rad), y=cy0+r*Math.sin(rad);
+    d += (i===0?'M ':'L ')+x.toFixed(2)+' '+y.toFixed(2)+' ';
+  }
+  el('path',{d,fill:'none',stroke:color,'stroke-width':sw,'stroke-linecap':'round'},parent);
+  const tipAng = ccw?spanStart:spanEnd;
+  const rad = tipAng*Math.PI/180;
+  const tx=cx+r*Math.cos(rad), ty=cy0+r*Math.sin(rad);
+  const sweepSign = ccw?-1:1;
+  const dx=-r*Math.sin(rad)*sweepSign, dy=r*Math.cos(rad)*sweepSign;
+  const tl=Math.hypot(dx,dy)||1, tdx=dx/tl, tdy=dy/tl;
+  const size=8, nx=-tdy, ny=tdx;
+  const backX=tx-tdx*size, backY=ty-tdy*size;
+  el('polygon',{points:`${tx.toFixed(2)},${ty.toFixed(2)} ${(backX+nx*size*0.55).toFixed(2)},${(backY+ny*size*0.55).toFixed(2)} ${(backX-nx*size*0.55).toFixed(2)},${(backY-ny*size*0.55).toFixed(2)}`,fill:color},parent);
+}
+/* Two-arc "rotate" version for the palette icon: since the placed glyph's
+   open side depends on which face it lands on (not known yet in the
+   palette), the icon shows two mirrored arcs — one on each side of the
+   circle, both curving the same rotational way — rather than committing
+   to either single half up front. */
+function momentRotateIcon(parent, cx, cy0, r, ccw, color, sw=3){
+  const span = 130, sweepSign = ccw ? -1 : 1;
+  [0,180].forEach(baseAng=>{
+    const start = baseAng, end = baseAng + sweepSign*span, steps=20;
+    let d='';
+    for(let i=0;i<=steps;i++){
+      const t=i/steps;
+      const ang = start + t*(end-start);
+      const rad = ang*Math.PI/180;
+      const x=cx+r*Math.cos(rad), y=cy0+r*Math.sin(rad);
+      d += (i===0?'M ':'L ')+x.toFixed(2)+' '+y.toFixed(2)+' ';
+    }
+    el('path',{d,fill:'none',stroke:color,'stroke-width':sw,'stroke-linecap':'round'},parent);
+    const rad = end*Math.PI/180;
+    const tx=cx+r*Math.cos(rad), ty=cy0+r*Math.sin(rad);
+    const dx=-r*Math.sin(rad)*sweepSign, dy=r*Math.cos(rad)*sweepSign;
+    const tl=Math.hypot(dx,dy)||1, tdx=dx/tl, tdy=dy/tl;
+    const size=7, nx=-tdy, ny=tdx;
+    const backX=tx-tdx*size, backY=ty-tdy*size;
+    el('polygon',{points:`${tx.toFixed(2)},${ty.toFixed(2)} ${(backX+nx*size*0.55).toFixed(2)},${(backY+ny*size*0.55).toFixed(2)} ${(backX-nx*size*0.55).toFixed(2)},${(backY-ny*size*0.55).toFixed(2)}`,fill:color},parent);
+  });
+}
+/* Bowed near-vertical stroke for torque — the same projection trick used
+   throughout this SERIES since torque's rotation axis runs along the
+   beam (a true arc would be viewed edge-on). */
+function torqueGlyph(parent, x, yTop, yBot, ccw, color, sw=3){
+  const bow=9, midY=(yTop+yBot)/2;
+  const startY = ccw ? yTop : yBot, endY = ccw ? yBot : yTop;
+  const d = `M ${x} ${startY} Q ${(x+bow).toFixed(2)} ${midY.toFixed(2)} ${x} ${endY}`;
+  el('path',{d,fill:'none',stroke:color,'stroke-width':sw,'stroke-linecap':'round'},parent);
+  const dx=-bow, dy=endY-midY, tl=Math.hypot(dx,dy)||1, ux=dx/tl, uy=dy/tl;
+  const size=8, nx=-uy, ny=ux;
+  const backX=x-ux*size, backY=endY-uy*size;
+  el('polygon',{points:`${x},${endY} ${(backX+nx*size*0.55).toFixed(2)},${(backY+ny*size*0.55).toFixed(2)} ${(backX-nx*size*0.55).toFixed(2)},${(backY-ny*size*0.55).toFixed(2)}`,fill:color},parent);
+}
+
+/* ---------- Loads / reactions (given, not draggable) ---------- */
+function drawLoadGlyph(parent, item, cy, color, offset=0){
+  const px = xPix(item.x)+offset;
+  const g = el('g',{},parent);
+  if(item.type==='axial'){
+    const len=28, dir=item.val>=0?1:-1;
+    hArrow(g, px, cy, px+dir*len, color, 3, 8);
+    text(px, cy-16, `${Math.abs(item.val)} N`, {'text-anchor':'middle',fill:color,'font-weight':700}, g);
+  } else if(item.type==='transverse'){
+    const len=28, dir=item.val>=0?-1:1;
+    const y1=cy, y2=cy+dir*len;
+    vArrow(g, px, y1, y2, color, 3, 8);
+    text(px, (dir>0?y2+14:y2-10), `${Math.abs(item.val)} N`, {'text-anchor':'middle',fill:color,'font-weight':700}, g);
+  } else if(item.type==='moment'){
+    const r=15;
+    momentHalfArc(g, px, cy, r, item.val>=0, true, color, 2.6);
+    text(px, cy-r-11, `${Math.abs(item.val)} N·m`, {'text-anchor':'middle',fill:color,'font-weight':700}, g);
+  } else if(item.type==='torque'){
+    const yTop=cy-28, yBot=cy+28;
+    torqueGlyph(g, px, yTop, yBot, item.val>=0, color, 2.6);
+    text(px, yTop-9, `${Math.abs(item.val)} N·m`, {'text-anchor':'middle',fill:color,'font-weight':700}, g);
+  }
+  return g;
+}
+/* Reactions are GIVEN (auto-placed, correct by construction) — always
+   drawn the same way regardless of sign, per the convention used
+   throughout this SERIES; the signed value in the label tells the truth. */
+function drawReactionGlyph(parent, r, cy, color, name, offset=0){
+  const px = xPix(r.x)+offset;
+  const g = el('g',{},parent);
+  if(r.type==='axial'){
+    const len=28;
+    hArrow(g, px, cy, px+r.dir*len, color, 3, 8);
+    subLabel(g, px, cy-16, name, '', ` = ${r.val.toFixed(0)} N`, {'text-anchor':'middle'}, color);
+  } else if(r.type==='transverse'){
+    const y2 = cy+BEAM_HH, y1 = y2+28;
+    vArrow(g, px, y1, y2, color, 3, 8);
+    subLabel(g, px, y1+16, name, '', ` = ${r.val.toFixed(0)} N`, {'text-anchor':'middle'}, color);
+  } else if(r.type==='moment'){
+    /* Drawn clear of the beam (above it, not centered on the corner),
+       with the open side facing back toward the beam it's attached to. */
+    const rad=15, cyArc = cy - BEAM_HH - rad - 10, openRight = r.x < L/2;
+    momentHalfArc(g, px, cyArc, rad, true, openRight, color, 2.6);
+    subLabel(g, px, cyArc-rad-11, name, '', ` = ${r.val.toFixed(0)} N·m`, {'text-anchor':'middle'}, color);
+  } else if(r.type==='torque'){
+    const yTop=cy-28, yBot=cy+28;
+    torqueGlyph(g, px, yTop, yBot, true, color, 2.6);
+    subLabel(g, px, yTop-9, name, '', ` = ${r.val.toFixed(0)} N·m`, {'text-anchor':'middle'}, color);
+  }
+  return g;
+}
+const REACTION_PREFIX = {axial:'Rx', transverse:'Ry', moment:'M', torque:'T'};
+function reactionLabels(){
+  const counts = {axial:0,transverse:0,moment:0,torque:0};
+  return reactions.map(r=>{ counts[r.type]++; return `${REACTION_PREFIX[r.type]}${counts[r.type]}`; });
+}
+
+/* ---------- Rendering ---------- */
+function drawAxisIndicator(parent, x0, y0, size=24){
+  const col = 'var(--steel)';
+  el('line',{x1:x0,y1:y0,x2:x0+size,y2:y0,stroke:col,'stroke-width':1.6},parent);
+  el('polygon',{points:`${x0+size},${y0} ${x0+size-7},${y0-4.3} ${x0+size-7},${y0+4.3}`,fill:col},parent);
+  text(x0+size+9,y0+4,'x',{'font-size':13,'font-weight':700,fill:col},parent);
+  el('line',{x1:x0,y1:y0,x2:x0,y2:y0-size,stroke:col,'stroke-width':1.6},parent);
+  el('polygon',{points:`${x0},${y0-size} ${x0-4.3},${y0-size+7} ${x0+4.3},${y0-size+7}`,fill:col},parent);
+  text(x0-3,y0-size-9,'y',{'font-size':13,'font-weight':700,fill:col,'text-anchor':'middle'},parent);
+  el('circle',{cx:x0,cy:y0,r:2,fill:col},parent);
+}
+function renderTopDiagram(){
+  const svg = document.getElementById('topSvg');
+  svg.innerHTML = '';
+  const g = el('g',{},svg);
+  el('rect',{x:xPix(0),y:CY_TOP-BEAM_HH,width:xPix(L)-xPix(0),height:BEAM_HH*2,fill:'#F6F7F4',stroke:'var(--ink)','stroke-width':1.6},g);
+  loads.forEach(l=> drawLoadGlyph(g, l, CY_TOP, 'var(--force)'));
+  const labels = reactionLabels();
+  reactions.forEach((r,i)=> drawReactionGlyph(g, r, CY_TOP, 'var(--force)', labels[i]));
+  const cutXpix = xPix(cutX);
+  el('line',{x1:cutXpix,y1:CY_TOP-BEAM_HH-16,x2:cutXpix,y2:CY_TOP+BEAM_HH+58,stroke:'var(--teal)','stroke-width':2,'stroke-dasharray':'4,3'},g);
+  text(cutXpix, CY_TOP-BEAM_HH-22, 'CUT', {'text-anchor':'middle','font-weight':700,fill:'var(--teal)'}, g);
+  drawAxisIndicator(g, 40, 202, 22);
+}
+
+/* All four types can now coexist on a face (even a pure torque problem
+   gets V and M glyphs, since they're always offered), so each needs its
+   own distinct horizontal lane AND vertical label band — V above the
+   beam, N at mid-height, M below-near, T below-far — so labels stay
+   legible even fully loaded with all four revealed values at once. */
+const TYPE_OFFSET = {axial:35, transverse:70, moment:120, torque:170};
+const TYPE_LABEL = {axial:'F(x)', transverse:'V(x)', moment:'M(x)', torque:'T(x)'};
+const TYPE_UNIT = {axial:'N', transverse:'N', moment:'N·m', torque:'N·m'};
+
+function renderPlacements(parent, xf, face){
+  const isLeft = face==='left';
+  const gapSide = isLeft?1:-1;
+  const correctDir = isLeft ? 1 : -1;
+  const trueVals = checked ? computeInternal(cutX) : null;
+  const slots = placements[face];
+  Object.keys(slots).forEach(type=>{
+    const p = slots[type];
+    /* Placed glyphs always stay teal, whether checked or not — right vs.
+       wrong is conveyed through the result banner's text, not by turning
+       the glyph red. */
+    const color = 'var(--teal)';
+    const g = el('g',{style:'cursor:pointer'},parent);
+    g.addEventListener('click', ()=>removePlacement(face,type));
+    const off = TYPE_OFFSET[type];
+    let labelX, labelY;
+    if(type==='axial'){
+      /* Always drawn outside the body, in the same lane regardless of
+         direction — a placement that doesn't follow the sign convention
+         (pointing toward the material) still sits outside the cut face,
+         with the arrowhead pointing IN at the surface, rather than the
+         arrow retreating back over the beam itself. */
+      const ax = xf+gapSide*off;
+      if(p.dir===correctDir) hArrow(g, xf, CY_CUT, ax, color, 3, 8);
+      else hArrow(g, ax, CY_CUT, xf, color, 3, 8);
+      labelX = ax+gapSide*8; labelY = CY_CUT-16;
+    } else if(type==='transverse'){
+      const vx = xf+gapSide*off, vy1=CY_CUT-BEAM_HH*0.82, vy2=CY_CUT+BEAM_HH*0.82;
+      const y1 = p.dir>=0? vy2:vy1, y2 = p.dir>=0? vy1:vy2;
+      vArrow(g, vx, y1, y2, color, 3, 8);
+      labelX = vx; labelY = CY_CUT-45;
+    } else if(type==='moment'){
+      /* Open side flips per face (matches the pre-full-circle-palette
+         behavior) — the palette icon now shows a full circle so it
+         doesn't commit to either half; dropping resolves to whichever
+         half belongs on that face. */
+      const mx = xf+gapSide*off;
+      momentHalfArc(g, mx, CY_CUT, 15, p.dir>=0, !isLeft, color, 2.6);
+      labelX = mx; labelY = CY_CUT+45;
+    } else if(type==='torque'){
+      const tx = xf+gapSide*off;
+      torqueGlyph(g, tx, CY_CUT-28, CY_CUT+28, p.dir>=0, color, 2.6);
+      labelX = tx; labelY = CY_CUT+78;
+    }
+    /* Revealed value is relative to the direction THIS glyph was drawn
+       in — same "always draw an assumed direction, let the sign say
+       whether that assumption was right" pattern used for reactions —
+       not always the fixed convention-positive value regardless of what
+       the student actually drew. (+0 clears a stray "-0" from sign flip.) */
+    const displayVal = checked ? (trueVals[TRUE_KEY[type]] * (p.dir===correctDir ? 1 : -1) + 0) : null;
+    const suffix = checked ? ` = ${displayVal.toFixed(0)} ${TYPE_UNIT[type]}` : '';
+    text(labelX, labelY, TYPE_LABEL[type]+suffix, {'text-anchor':'middle',fill:color,'font-weight':700,'font-size':12}, g);
+  });
+}
+
+function renderCutView(){
+  const svg = document.getElementById('cutSvg');
+  svg.innerHTML = '';
+  const g = el('g',{},svg);
+  const cutXpix = xPix(cutX);
+  const leftOffset = -GAP, rightOffset = GAP;
+  const labels = reactionLabels();
+
+  const laX = xPix(0)+leftOffset, lbX = cutXpix+leftOffset;
+  el('rect',{x:laX,y:CY_CUT-BEAM_HH,width:Math.max(lbX-laX,1),height:BEAM_HH*2,fill:'#F6F7F4',stroke:'var(--ink)','stroke-width':1.6},g);
+  loads.filter(l=>l.x<cutX).forEach(l=> drawLoadGlyph(g, l, CY_CUT, 'var(--force)', leftOffset));
+  reactions.forEach((r,i)=>{ if(r.x<cutX) drawReactionGlyph(g, r, CY_CUT, 'var(--force)', labels[i], leftOffset); });
+  el('line',{x1:lbX,y1:CY_CUT-BEAM_HH,x2:lbX,y2:CY_CUT+BEAM_HH,stroke:'var(--ink)','stroke-width':2.2},g);
+  text(laX+4, 26, 'LEFT FREE BODY', {'font-size':13,'font-weight':700,fill:'var(--ink)'},g);
+  renderPlacements(g, lbX, 'left');
+
+  const raX = cutXpix+rightOffset, rbX = xPix(L)+rightOffset;
+  el('rect',{x:raX,y:CY_CUT-BEAM_HH,width:Math.max(rbX-raX,1),height:BEAM_HH*2,fill:'#F6F7F4',stroke:'var(--ink)','stroke-width':1.6},g);
+  loads.filter(l=>l.x>cutX).forEach(l=> drawLoadGlyph(g, l, CY_CUT, 'var(--force)', rightOffset));
+  reactions.forEach((r,i)=>{ if(r.x>cutX) drawReactionGlyph(g, r, CY_CUT, 'var(--force)', labels[i], rightOffset); });
+  el('line',{x1:raX,y1:CY_CUT-BEAM_HH,x2:raX,y2:CY_CUT+BEAM_HH,stroke:'var(--ink)','stroke-width':2.2},g);
+  text(rbX-4, 26, 'RIGHT FREE BODY', {'font-size':13,'font-weight':700,fill:'var(--ink)','text-anchor':'end'},g);
+  renderPlacements(g, raX, 'right');
+
+  drawAxisIndicator(g, -70, 395, 22);
+}
+
+function renderAll(){
+  renderTopDiagram();
+  renderCutView();
+}
+
+function removePlacement(face, type){
+  delete placements[face][type];
+  checked = false;
+  banner.className=''; banner.innerHTML='';
+  renderCutView();
+}
+
+/* ---------- Palette ---------- */
+const REL_LABELS = {axial:'axial F', transverse:'shear V', moment:'moment M', torque:'torque T'};
+function buildPalette(){
+  const row = document.getElementById('paletteRow');
+  Array.from(row.querySelectorAll('.palette-group')).forEach(node=>node.remove());
+  ALL_TYPES.forEach(type=>{
+    const group = document.createElement('div');
+    group.className = 'palette-group';
+    const pair = document.createElement('div');
+    pair.className = 'dir-pair';
+    /* Randomize left/right order of the two direction icons each time —
+       otherwise a student can learn "the left icon goes on the left
+       face" as a shortcut instead of actually reading the arrow. */
+    const dirOrder = Math.random()<0.5 ? [1,-1] : [-1,1];
+    dirOrder.forEach(dir=>{
+      const item = document.createElement('div');
+      item.className = 'palette-item';
+      item.dataset.type = type;
+      item.dataset.dir = dir;
+      item.draggable = false;
+      const svgEl = document.createElementNS(NS,'svg');
+      svgEl.setAttribute('viewBox','0 0 40 40');
+      item.appendChild(svgEl);
+      pair.appendChild(item);
+    });
+    const label = document.createElement('span');
+    label.className = 'plabel';
+    label.textContent = REL_LABELS[type];
+    group.appendChild(pair);
+    group.appendChild(label);
+    row.appendChild(group);
+  });
+  row.querySelectorAll('.palette-item').forEach(itemEl=>{
+    const type = itemEl.dataset.type, dir = parseInt(itemEl.dataset.dir,10);
+    const svgEl = itemEl.querySelector('svg');
+    const color = '#1F7A6C';
+    if(type==='axial') hArrow(svgEl, 20-dir*14, 20, 20+dir*14, color, 3.4, 9);
+    else if(type==='transverse') vArrow(svgEl, 20, 20+dir*14, 20-dir*14, color, 3.4, 9);
+    else if(type==='moment') momentRotateIcon(svgEl, 20, 20, 12, dir>=0, color, 3.2);
+    else if(type==='torque') torqueGlyph(svgEl, 20, 6, 34, dir>=0, color, 3.2);
+    itemEl.addEventListener('pointerdown', evt=>{
+      evt.preventDefault();
+      startDrag(type, dir, itemEl, evt);
+      const onMove = e=>moveGhost(e);
+      const onUp = e=>{
+        endDrag(e, itemEl);
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+      };
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
+    });
+  });
+}
+
+/* ---------- Drag-and-drop ----------
+   Custom pointer-based dragging (not HTML5 DnD) since the drop target is
+   an SVG element; which of the two cut faces a drop lands on is decided
+   by comparing the drop x-position against the cut position. */
+let dragItem = null, ghostEl = null;
+function paletteSvgFor(type, dir){
+  return document.querySelector(`.palette-item[data-type="${type}"][data-dir="${dir}"] svg`).cloneNode(true);
+}
+function startDrag(type, dir, sourceEl, evt){
+  dragItem = {type, dir};
+  sourceEl.classList.add('dragging');
+  ghostEl = paletteSvgFor(type, dir);
+  ghostEl.classList.add('ghost');
+  document.body.appendChild(ghostEl);
+  moveGhost(evt);
+  document.getElementById('hintText').textContent = 'Drop on the LEFT or RIGHT cut face, or release elsewhere to cancel.';
+}
+function moveGhost(evt){
+  const p = ('touches' in evt && evt.touches[0]) ? evt.touches[0] : evt;
+  if(ghostEl){ ghostEl.style.left = p.clientX+'px'; ghostEl.style.top = p.clientY+'px'; }
+}
+function endDrag(evt, sourceEl){
+  const p = ('changedTouches' in evt && evt.changedTouches[0]) ? evt.changedTouches[0] : evt;
+  const svg = document.getElementById('cutSvg');
+  const rect = svg.getBoundingClientRect();
+  if(p.clientX>=rect.left && p.clientX<=rect.right && p.clientY>=rect.top && p.clientY<=rect.bottom){
+    const vb = svg.viewBox.baseVal;
+    const px = vb.x + (p.clientX-rect.left)/rect.width*vb.width;
+    const face = px < xPix(cutX) ? 'left' : 'right';
+    placements[face][dragItem.type] = {dir: dragItem.dir};
+    checked = false;
+    banner.className=''; banner.innerHTML='';
+    renderCutView();
+  }
+  if(sourceEl) sourceEl.classList.remove('dragging');
+  if(ghostEl){ ghostEl.remove(); ghostEl=null; }
+  dragItem = null;
+  document.getElementById('hintText').textContent = 'Drag an internal-force glyph onto the LEFT or RIGHT cut face. Click a placed glyph to remove it.';
+}
+
+/* ---------- Check ----------
+   Each of the four channels (F, V, M, T) is graded independently, in full,
+   regardless of what happens with the others. Sign convention only needs
+   ONE placed face to evaluate, so it's always checked for whatever's
+   there; consistency needs both, so it only runs when both are present:
+     - NECESSARY (nonzero here): both faces are required — missing either
+       is flagged. Whatever IS placed still gets its convention checked
+       even if the other face is missing.
+     - NOT NECESSARY (zero here) and nothing placed: say nothing, that's
+       fine.
+     - NOT NECESSARY but at least one face is placed: grade whatever is
+       there the same way, then note that the channel is zero regardless
+       of whether it was graded correct or not.
+   No channel's missing/wrong verdict ever suppresses another's — every
+   channel is checked and reported on its own. */
+const banner = document.getElementById('resultBanner');
+function bold(type){ return `<b>${TYPE_LABEL[type]}</b>`; }
+function gradeChannel(type, Lp, Rp, errors, isZero){
+  const leftOk = Lp ? Lp.dir===1 : null, rightOk = Rp ? Rp.dir===-1 : null;
+  if(Lp && Rp){
+    if(leftOk && rightOk) return false;
+    const consistent = Lp.dir + Rp.dir === 0;
+    if(consistent){
+      /* Both faces agree with each other (equal-and-opposite) but they
+         agree on the WRONG direction — one combined message, not two
+         separate per-face complaints. For a zero-valued channel, fold
+         in the "you didn't have to include this" framing instead of a
+         separate note elsewhere. */
+      errors.push(isZero
+        ? `There's an issue with ${bold(type)} — it's zero, so you don't have to include it, but if you do it needs to follow the sign convention.`
+        : `${bold(type)} is consistent between the two faces, but does not follow the sign convention.`);
+    } else if(isZero){
+      errors.push(`There are several issues with ${bold(type)} — it's zero, so you don't have to include it, but if you do it needs to follow the sign convention and it needs to be equal-and-opposite between the two faces.`);
+    } else {
+      /* Exactly one face is wrong here (the other two combinations — both
+         correct, or both flipped — are handled above). Lead with the
+         sign-convention cause, then its consequence: the pair is no
+         longer equal-and-opposite. One grouped message, not two. */
+      const wrongFace = !leftOk ? 'left' : 'right';
+      errors.push(`${bold(type)} on the ${wrongFace} face does not follow the sign convention, so it is not equal-and-opposite between the two faces (Newton's third law).`);
+    }
+    return true;
+  }
+  if(Lp || Rp){
+    /* Only one face placed — can't judge consistency, but the sign
+       convention for that lone placement can still be checked. (Zero
+       channels never reach here: checkAnswer handles their partial-
+       placement case separately, before calling gradeChannel.) */
+    const isLeft = !!Lp;
+    if(isLeft ? !leftOk : !rightOk){
+      errors.push(`${bold(type)} on the ${isLeft?'left':'right'} face does not follow the sign convention.`);
+      return true;
+    }
+  }
+  return false;
+}
+function checkAnswer(){
+  const trueVals = computeInternal(cutX);
+  const isZeroType = type => Math.abs(trueVals[TRUE_KEY[type]]) < ZERO_TOL;
+
+  const errors = [], notes = [];
+  ALL_TYPES.forEach(type=>{
+    const Lp = placements.left[type], Rp = placements.right[type];
+    if(isZeroType(type)){
+      if(!Lp && !Rp) return; // zero and untouched — nothing to do
+      if(!Lp || !Rp){
+        /* Partial placement of an optional zero-valued channel — up to
+           two things can be wrong at once: it's incomplete (only one
+           face), and the one face that IS placed might not follow the
+           sign convention. Call out whichever actually applies. */
+        const p = Lp || Rp, isLeft = !!Lp, correctDir = isLeft ? 1 : -1;
+        const dirOk = p.dir === correctDir;
+        if(dirOk){
+          errors.push(`There's an issue with ${bold(type)} — it's zero, so you don't have to include it, but if you do it needs to be included on both sides of the cut.`);
+        } else {
+          errors.push(`There are several issues with ${bold(type)} — it's zero, so you don't have to include it, but if you do it needs to follow the sign convention and it needs to be included on both sides of the cut.`);
+        }
+        return;
+      }
+      const hadIssue = gradeChannel(type, Lp, Rp, errors, true);
+      if(!hadIssue) notes.push(`${bold(type)} is zero here.`);
+    } else if(!Lp && !Rp){
+      errors.push(`There's an issue with ${bold(type)} — it's missing entirely.`);
+    } else if(!Lp || !Rp){
+      /* Missing one face AND the lone placed face being wrong are two
+         separate problems that can both be true at once — combine them
+         into one message instead of two disconnected bullets. */
+      const missingFace = !Lp ? 'left' : 'right';
+      const p = Lp || Rp, isLeft = !!Lp, correctDir = isLeft ? 1 : -1;
+      if(p.dir === correctDir){
+        errors.push(`There's an issue with ${bold(type)} — it's missing on the ${missingFace} face.`);
+      } else {
+        errors.push(`There are several issues with ${bold(type)} — it's missing on the ${missingFace} face, and on the ${isLeft?'left':'right'} face it does not follow the sign convention.`);
+      }
+    } else {
+      gradeChannel(type, Lp, Rp, errors);
+    }
+  });
+
+  checked = true;
+  const hasIssues = errors.length > 0;
+  const headline = hasIssues ? 'Not quite' : 'Correct!';
+  banner.className = 'show ' + (hasIssues ? 'bad' : 'ok');
+  let html = `<b>${headline}</b>`;
+  if(errors.length) html += `<ul class="errors">${errors.map(n=>`<li>${n}</li>`).join('')}</ul>`;
+  if(notes.length) html += `<div class="notes-label">Notes</div><ul class="notes">${notes.map(n=>`<li>${n}</li>`).join('')}</ul>`;
+  banner.innerHTML = html;
+  renderCutView();
+}
+
+document.getElementById('checkBtn').addEventListener('click', checkAnswer);
+document.getElementById('newProblemBtn').addEventListener('click', newProblem);
+
+/* ---------- Initialize ---------- */
+newProblem();
+</script>
+</body>
+</html>
+
