@@ -362,7 +362,7 @@ function drawLoadGlyph(parent, item, cy, color, offset=0){
     const len=28, dir=item.val>=0?-1:1;
     const y1=cy, y2=cy+dir*len;
     vArrow(g, px, y1, y2, color, 3, 8);
-    text(px, (dir>0?y2-8:y2+18), `${Math.abs(item.val)} N`, {'text-anchor':'middle',fill:color,'font-weight':700}, g);
+    text(px, (dir>0?y2+14:y2-10), `${Math.abs(item.val)} N`, {'text-anchor':'middle',fill:color,'font-weight':700}, g);
   } else if(item.type==='moment'){
     const r=15;
     momentHalfArc(g, px, cy, r, item.val>=0, true, color, 2.6);
@@ -648,9 +648,19 @@ function checkAnswer(){
        out as a note (it could have been left off) instead of grading it
        right or wrong. If they left it off, say nothing; that's correct. */
     if(isZeroType(type)){ if(Lp || Rp) zeroNotes.push(`${TYPE_LABEL[type]} is zero here and could have been omitted.`); return; }
-    if(Lp.dir !== 1) conventionIssues.push(`${TYPE_LABEL[type]} on the left face does not follow the sign convention.`);
-    if(Rp.dir !== -1) conventionIssues.push(`${TYPE_LABEL[type]} on the right face does not follow the sign convention.`);
-    if(Lp.dir + Rp.dir !== 0) consistencyIssues.push(`${TYPE_LABEL[type]} is not equal-and-opposite between the two faces (Newton's third law).`);
+    const leftOk = Lp.dir===1, rightOk = Rp.dir===-1;
+    if(leftOk && rightOk) return;
+    const consistent = Lp.dir + Rp.dir === 0;
+    if(consistent){
+      /* Both faces agree with each other (equal-and-opposite) but they
+         agree on the WRONG direction — one combined note, not two
+         separate per-face complaints. */
+      conventionIssues.push(`${TYPE_LABEL[type]} is consistent between the two faces, but does not follow the sign convention.`);
+    } else {
+      consistencyIssues.push(`${TYPE_LABEL[type]} is not equal-and-opposite between the two faces (Newton's third law).`);
+      if(!leftOk) conventionIssues.push(`${TYPE_LABEL[type]} on the left face does not follow the sign convention.`);
+      if(!rightOk) conventionIssues.push(`${TYPE_LABEL[type]} on the right face does not follow the sign convention.`);
+    }
   });
   const allGood = conventionIssues.length===0 && consistencyIssues.length===0;
   const notes = [...consistencyIssues, ...conventionIssues, ...zeroNotes];
