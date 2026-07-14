@@ -324,32 +324,32 @@ function vArrow(parent, x, y1, y2, color, width, headSize=8){
   vArrowHead(x,y2,dir,headSize,color,parent);
 }
 /* True half-circle for the internal bending moment AT A CUT FACE — ccw is
-   the rotational sense (what gets checked). Its sweep always runs between
-   standard angle -90° (screen 90°, pointing down) and +90° (screen 270°,
-   pointing up): clockwise (ccw=false) always starts at -90° and rotates
-   up to +90°; counterclockwise is the reverse. openRight is a purely
-   cosmetic "which side is open" detail, always forced away from the cut
-   automatically (not a student choice) — it only picks which way around
-   (through the east or west side) that same -90°-to-+90° sweep travels,
-   never which endpoint it starts or ends at. */
+   the rotational sense (what gets checked): increasing angle in this
+   screen-coordinate system (y grows downward) reads as clockwise, so
+   ccw=false always sweeps with increasing angle and ccw=true with
+   decreasing angle, regardless of which side is drawn. openRight is a
+   purely cosmetic "which side is open" detail, always forced away from
+   the cut automatically (not a student choice) — because true clockwise
+   or counterclockwise rotation can only pass through ONE specific side
+   for a given pair of endpoints, honoring both openRight AND a fixed
+   rotational sense means the absolute start/end angles necessarily flip
+   between the two openRight cases; that's expected, not a bug — the
+   rotational sense is what's graded, not the absolute start angle. */
 function momentHalfArc(parent, cx, cy0, r, ccw, openRight, color, sw=3){
-  const spanStart = ccw ? 270 : 90;
-  const delta = (ccw === openRight) ? -180 : 180;
-  const spanEnd = spanStart + delta;
-  const steps=30;
+  const spanStart = openRight ? 90 : 270, spanEnd = spanStart+180, steps=30;
   let d='';
   for(let i=0;i<=steps;i++){
     const t=i/steps;
-    const ang = spanStart + t*delta;
+    const ang = ccw ? spanEnd - t*(spanEnd-spanStart) : spanStart + t*(spanEnd-spanStart);
     const rad = ang*Math.PI/180;
     const x=cx+r*Math.cos(rad), y=cy0+r*Math.sin(rad);
     d += (i===0?'M ':'L ')+x.toFixed(2)+' '+y.toFixed(2)+' ';
   }
   el('path',{d,fill:'none',stroke:color,'stroke-width':sw,'stroke-linecap':'round'},parent);
-  const tipAng = spanEnd;
+  const tipAng = ccw?spanStart:spanEnd;
   const rad = tipAng*Math.PI/180;
   const tx=cx+r*Math.cos(rad), ty=cy0+r*Math.sin(rad);
-  const sweepSign = delta>0?1:-1;
+  const sweepSign = ccw?-1:1;
   const dx=-r*Math.sin(rad)*sweepSign, dy=r*Math.cos(rad)*sweepSign;
   const tl=Math.hypot(dx,dy)||1, tdx=dx/tl, tdy=dy/tl;
   const size=8, nx=-tdy, ny=tdx;
@@ -494,11 +494,10 @@ function renderPlacements(parent, xf, face){
   const slots = placements[face];
   Object.keys(slots).forEach(type=>{
     const p = slots[type];
-    /* Zero-valued channels are graded exactly like any other — the sign
-       convention and equal-and-opposite checks still apply; being zero
-       is called out separately as an added note, not an exemption. */
-    const ok = checked ? (p.dir===correctDir) : null;
-    const color = !checked ? 'var(--teal)' : (ok? 'var(--teal)' : 'var(--force)');
+    /* Placed glyphs always stay teal, whether checked or not — right vs.
+       wrong is conveyed through the result banner's text, not by turning
+       the glyph red. */
+    const color = 'var(--teal)';
     const g = el('g',{style:'cursor:pointer'},parent);
     g.addEventListener('click', ()=>removePlacement(face,type));
     const off = TYPE_OFFSET[type];
@@ -720,12 +719,15 @@ function checkAnswer(){
     const Lp = placements.left[type], Rp = placements.right[type];
     if(isZeroType(type)){
       if(!Lp && !Rp) return; // zero and untouched — nothing to do
-      /* Once a student has started placing a zero-valued channel, the
-         pair still has to be completed — a lone placement gets its own
-         convention graded immediately (below), but the missing partner
-         face is still flagged, same as any other channel. */
-      if(!Lp) missing.push(`${TYPE_LABEL[type]} on the left face`);
-      if(!Rp) missing.push(`${TYPE_LABEL[type]} on the right face`);
+      if(!Lp || !Rp){
+        /* Partial placement of an optional zero-valued channel: guide the
+           student to either complete the pair or remove the lone
+           placement, instead of separately flagging it missing and
+           noting elsewhere that it's zero. */
+        const missingFace = !Lp ? 'left' : 'right', otherFace = missingFace==='left' ? 'right' : 'left';
+        missing.push(`${TYPE_LABEL[type]} on the ${missingFace} face (${TYPE_LABEL[type]} is zero, but you should either add it on the ${missingFace} face or remove it on the ${otherFace} face)`);
+        return;
+      }
       gradeChannel(type, Lp, Rp, errors);
       notes.push(`${TYPE_LABEL[type]} is zero here.`);
     } else {
