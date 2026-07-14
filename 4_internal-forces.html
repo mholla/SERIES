@@ -272,6 +272,12 @@ function computeInternal(x){
   });
   return {N,V,M,T};
 }
+const ZERO_TOL = 1e-6;
+const TRUE_KEY = {axial:'N', transverse:'V', moment:'M', torque:'T'};
+function isAllZeroCut(x){
+  const v = computeInternal(x);
+  return Math.abs(v.N)<ZERO_TOL && Math.abs(v.V)<ZERO_TOL && Math.abs(v.M)<ZERO_TOL && Math.abs(v.T)<ZERO_TOL;
+}
 
 /* All four internal-force types are always available to place — even a
    pure torque problem offers shear and moment glyphs, because correctly
@@ -281,10 +287,14 @@ function computeInternal(x){
 const ALL_TYPES = ['axial','transverse','moment','torque'];
 
 function newProblem(){
-  randomizeLoads();
-  buildReactions();
-  solveReactions();
-  cutX = pickCutX();
+  /* A cut with nothing but zeros on every channel is a degenerate
+     problem (nothing to check) — regenerate until the cut sees at
+     least one nonzero internal action. */
+  for(let attempt=0; attempt<40; attempt++){
+    if(attempt===0 || attempt%8===0){ randomizeLoads(); buildReactions(); solveReactions(); }
+    cutX = pickCutX();
+    if(!isAllZeroCut(cutX)) break;
+  }
   placements = { left:{}, right:{} };
   checked = false;
   banner.className = ''; banner.innerHTML = '';
@@ -435,11 +445,9 @@ function renderTopDiagram(){
    own distinct horizontal lane AND vertical label band — V above the
    beam, N at mid-height, M below-near, T below-far — so labels stay
    legible even fully loaded with all four revealed values at once. */
-const ZERO_TOL = 1e-6;
 const TYPE_OFFSET = {axial:35, transverse:70, moment:120, torque:170};
 const TYPE_LABEL = {axial:'F(x)', transverse:'V(x)', moment:'M(x)', torque:'T(x)'};
 const TYPE_UNIT = {axial:'N', transverse:'N', moment:'N·m', torque:'N·m'};
-const TRUE_KEY = {axial:'N', transverse:'V', moment:'M', torque:'T'};
 
 function renderPlacements(parent, xf, face){
   const isLeft = face==='left';
@@ -449,12 +457,11 @@ function renderPlacements(parent, xf, face){
   const slots = placements[face];
   Object.keys(slots).forEach(type=>{
     const p = slots[type];
-    const isZero = checked && Math.abs(trueVals[TRUE_KEY[type]]) < ZERO_TOL;
-    /* Direction doesn't mean anything for a force that's actually zero —
-       don't mark it right or wrong, just neutral; it gets called out as
-       a note in the result banner instead. */
-    const ok = checked && !isZero ? (p.dir===correctDir) : null;
-    const color = !checked ? 'var(--teal)' : isZero ? 'var(--steel)' : (ok? 'var(--teal)' : 'var(--force)');
+    /* Zero-valued channels are graded exactly like any other — the sign
+       convention and equal-and-opposite checks still apply; being zero
+       is called out separately as an added note, not an exemption. */
+    const ok = checked ? (p.dir===correctDir) : null;
+    const color = !checked ? 'var(--teal)' : (ok? 'var(--teal)' : 'var(--force)');
     const g = el('g',{style:'cursor:pointer'},parent);
     g.addEventListener('click', ()=>removePlacement(face,type));
     const off = TYPE_OFFSET[type];
@@ -624,11 +631,8 @@ function checkAnswer(){
   const trueVals = computeInternal(cutX);
   const isZeroType = type => Math.abs(trueVals[TRUE_KEY[type]]) < ZERO_TOL;
 
-  /* A channel that's genuinely zero at this cut is never required — leaving
-     it off the diagram is correct, not incomplete. */
   const missing = [];
   ALL_TYPES.forEach(type=>{
-    if(isZeroType(type)) return;
     if(!placements.left[type]) missing.push(`${TYPE_LABEL[type]} on the left face`);
     if(!placements.right[type]) missing.push(`${TYPE_LABEL[type]} on the right face`);
   });
@@ -643,11 +647,10 @@ function checkAnswer(){
   const conventionIssues = [], consistencyIssues = [], zeroNotes = [];
   ALL_TYPES.forEach(type=>{
     const Lp = placements.left[type], Rp = placements.right[type];
-    /* A force/moment that's genuinely zero at this cut has no meaningful
-       "direction" to check — if the student placed it anyway, call that
-       out as a note (it could have been left off) instead of grading it
-       right or wrong. If they left it off, say nothing; that's correct. */
-    if(isZeroType(type)){ if(Lp || Rp) zeroNotes.push(`${TYPE_LABEL[type]} is zero here and could have been omitted.`); return; }
+    /* Zero-valued channels are graded exactly like any other — sign
+       convention and equal-and-opposite still apply. Being zero is
+       called out separately below, regardless of whether it's correct. */
+    if(isZeroType(type)) zeroNotes.push(`${TYPE_LABEL[type]} is zero here.`);
     const leftOk = Lp.dir===1, rightOk = Rp.dir===-1;
     if(leftOk && rightOk) return;
     const consistent = Lp.dir + Rp.dir === 0;
