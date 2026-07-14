@@ -356,21 +356,32 @@ function momentHalfArc(parent, cx, cy0, r, ccw, openRight, color, sw=3){
   const backX=tx-tdx*size, backY=ty-tdy*size;
   el('polygon',{points:`${tx.toFixed(2)},${ty.toFixed(2)} ${(backX+nx*size*0.55).toFixed(2)},${(backY+ny*size*0.55).toFixed(2)} ${(backX-nx*size*0.55).toFixed(2)},${(backY-ny*size*0.55).toFixed(2)}`,fill:color},parent);
 }
-/* Full-circle version for the palette icon: since the placed glyph's
+/* Two-arc "rotate" version for the palette icon: since the placed glyph's
    open side depends on which face it lands on (not known yet in the
-   palette), the icon shows the whole circle — the same fixed tip used
-   by momentHalfArc — rather than committing to either half up front. */
-function momentFullCircle(parent, cx, cy0, r, ccw, color, sw=3){
-  el('circle',{cx,cy:cy0,r,fill:'none',stroke:color,'stroke-width':sw},parent);
-  const tipAng = ccw ? 90 : 270;
-  const rad = tipAng*Math.PI/180;
-  const tx=cx+r*Math.cos(rad), ty=cy0+r*Math.sin(rad);
-  const sweepSign = ccw?-1:1;
-  const dx=-r*Math.sin(rad)*sweepSign, dy=r*Math.cos(rad)*sweepSign;
-  const tl=Math.hypot(dx,dy)||1, tdx=dx/tl, tdy=dy/tl;
-  const size=8, nx=-tdy, ny=tdx;
-  const backX=tx-tdx*size, backY=ty-tdy*size;
-  el('polygon',{points:`${tx.toFixed(2)},${ty.toFixed(2)} ${(backX+nx*size*0.55).toFixed(2)},${(backY+ny*size*0.55).toFixed(2)} ${(backX-nx*size*0.55).toFixed(2)},${(backY-ny*size*0.55).toFixed(2)}`,fill:color},parent);
+   palette), the icon shows two mirrored arcs — one on each side of the
+   circle, both curving the same rotational way — rather than committing
+   to either single half up front. */
+function momentRotateIcon(parent, cx, cy0, r, ccw, color, sw=3){
+  const span = 130, sweepSign = ccw ? -1 : 1;
+  [0,180].forEach(baseAng=>{
+    const start = baseAng, end = baseAng + sweepSign*span, steps=20;
+    let d='';
+    for(let i=0;i<=steps;i++){
+      const t=i/steps;
+      const ang = start + t*(end-start);
+      const rad = ang*Math.PI/180;
+      const x=cx+r*Math.cos(rad), y=cy0+r*Math.sin(rad);
+      d += (i===0?'M ':'L ')+x.toFixed(2)+' '+y.toFixed(2)+' ';
+    }
+    el('path',{d,fill:'none',stroke:color,'stroke-width':sw,'stroke-linecap':'round'},parent);
+    const rad = end*Math.PI/180;
+    const tx=cx+r*Math.cos(rad), ty=cy0+r*Math.sin(rad);
+    const dx=-r*Math.sin(rad)*sweepSign, dy=r*Math.cos(rad)*sweepSign;
+    const tl=Math.hypot(dx,dy)||1, tdx=dx/tl, tdy=dy/tl;
+    const size=7, nx=-tdy, ny=tdx;
+    const backX=tx-tdx*size, backY=ty-tdy*size;
+    el('polygon',{points:`${tx.toFixed(2)},${ty.toFixed(2)} ${(backX+nx*size*0.55).toFixed(2)},${(backY+ny*size*0.55).toFixed(2)} ${(backX-nx*size*0.55).toFixed(2)},${(backY-ny*size*0.55).toFixed(2)}`,fill:color},parent);
+  });
 }
 /* Bowed near-vertical stroke for torque — the same projection trick used
    throughout this SERIES since torque's rotation axis runs along the
@@ -602,7 +613,7 @@ function buildPalette(){
     const color = '#1F7A6C';
     if(type==='axial') hArrow(svgEl, 20-dir*14, 20, 20+dir*14, color, 3.4, 9);
     else if(type==='transverse') vArrow(svgEl, 20, 20+dir*14, 20-dir*14, color, 3.4, 9);
-    else if(type==='moment') momentFullCircle(svgEl, 20, 20, 12, dir>=0, color, 3.2);
+    else if(type==='moment') momentRotateIcon(svgEl, 20, 20, 12, dir>=0, color, 3.2);
     else if(type==='torque') torqueGlyph(svgEl, 20, 6, 34, dir>=0, color, 3.2);
     itemEl.addEventListener('pointerdown', evt=>{
       evt.preventDefault();
@@ -709,6 +720,12 @@ function checkAnswer(){
     const Lp = placements.left[type], Rp = placements.right[type];
     if(isZeroType(type)){
       if(!Lp && !Rp) return; // zero and untouched — nothing to do
+      /* Once a student has started placing a zero-valued channel, the
+         pair still has to be completed — a lone placement gets its own
+         convention graded immediately (below), but the missing partner
+         face is still flagged, same as any other channel. */
+      if(!Lp) missing.push(`${TYPE_LABEL[type]} on the left face`);
+      if(!Rp) missing.push(`${TYPE_LABEL[type]} on the right face`);
       gradeChannel(type, Lp, Rp, errors);
       notes.push(`${TYPE_LABEL[type]} is zero here.`);
     } else {
