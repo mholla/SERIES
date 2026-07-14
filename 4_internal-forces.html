@@ -67,6 +67,8 @@
   #resultBanner.bad{border:1.5px solid var(--force);background:#F6E4E1;}
   #resultBanner b{display:block;font-size:15px;margin-bottom:4px;}
   #resultBanner ul{margin:6px 0 0;padding-left:18px;}
+  #resultBanner .notes-label{margin:10px 0 0;font-size:12px;letter-spacing:0.03em;text-transform:uppercase;color:var(--steel);}
+  #resultBanner .notes{color:var(--steel);}
 </style>
 </head>
 <body>
@@ -649,32 +651,38 @@ function checkAnswer(){
     return;
   }
   checked = true;
-  const conventionIssues = [], consistencyIssues = [], zeroNotes = [];
+  const errors = [], notes = [];
   ALL_TYPES.forEach(type=>{
     const Lp = placements.left[type], Rp = placements.right[type];
     if(!Lp && !Rp) return; // omitted zero-valued channel — nothing to grade
     /* Zero-valued channels are graded exactly like any other — sign
        convention and equal-and-opposite still apply. Being zero is
-       called out separately below, regardless of whether it's correct. */
-    if(isZeroType(type)) zeroNotes.push(`${TYPE_LABEL[type]} is zero here.`);
+       called out separately below (as a note, not an error), regardless
+       of whether it's correct. */
+    if(isZeroType(type)) notes.push(`${TYPE_LABEL[type]} is zero here.`);
     const leftOk = Lp.dir===1, rightOk = Rp.dir===-1;
     if(leftOk && rightOk) return;
     const consistent = Lp.dir + Rp.dir === 0;
     if(consistent){
       /* Both faces agree with each other (equal-and-opposite) but they
-         agree on the WRONG direction — one combined note, not two
+         agree on the WRONG direction — one combined message, not two
          separate per-face complaints. */
-      conventionIssues.push(`${TYPE_LABEL[type]} is consistent between the two faces, but does not follow the sign convention.`);
+      errors.push(`${TYPE_LABEL[type]} is consistent between the two faces, but does not follow the sign convention.`);
     } else {
-      consistencyIssues.push(`${TYPE_LABEL[type]} is not equal-and-opposite between the two faces (Newton's third law).`);
-      if(!leftOk) conventionIssues.push(`${TYPE_LABEL[type]} on the left face does not follow the sign convention.`);
-      if(!rightOk) conventionIssues.push(`${TYPE_LABEL[type]} on the right face does not follow the sign convention.`);
+      /* Exactly one face is wrong here (the other two combinations —
+         both correct, or both flipped — are handled above). Lead with
+         the sign-convention cause, then its consequence: the pair is no
+         longer equal-and-opposite. One grouped message, not two. */
+      const wrongFace = !leftOk ? 'left' : 'right';
+      errors.push(`${TYPE_LABEL[type]} on the ${wrongFace} face does not follow the sign convention, so it is not equal-and-opposite between the two faces (Newton's third law).`);
     }
   });
-  const allGood = conventionIssues.length===0 && consistencyIssues.length===0;
-  const notes = [...consistencyIssues, ...conventionIssues, ...zeroNotes];
+  const allGood = errors.length===0;
   banner.className = 'show ' + (allGood?'ok':'bad');
-  banner.innerHTML = `<b>${allGood?'Correct!':'Not quite'}</b>` + (notes.length? `<ul>${notes.map(n=>`<li>${n}</li>`).join('')}</ul>` : '');
+  let html = `<b>${allGood?'Correct!':'Not quite'}</b>`;
+  if(errors.length) html += `<ul class="errors">${errors.map(n=>`<li>${n}</li>`).join('')}</ul>`;
+  if(notes.length) html += `<div class="notes-label">Notes</div><ul class="notes">${notes.map(n=>`<li>${n}</li>`).join('')}</ul>`;
+  banner.innerHTML = html;
   renderCutView();
 }
 
