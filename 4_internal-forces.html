@@ -436,9 +436,11 @@ function drawReactionGlyph(parent, r, cy, color, name, offset=0){
     vArrow(g, px, y1, y2, color, 3, 8);
     subLabel(g, px, y1+16, name, '', ` = ${r.val.toFixed(0)} N`, {'text-anchor':'middle'}, color);
   } else if(r.type==='moment'){
-    const rad=15;
-    momentHalfArc(g, px, cy, rad, true, true, color, 2.6);
-    subLabel(g, px, cy-rad-11, name, '', ` = ${r.val.toFixed(0)} N·m`, {'text-anchor':'middle'}, color);
+    /* Drawn clear of the beam (above it, not centered on the corner),
+       with the open side facing back toward the beam it's attached to. */
+    const rad=15, cyArc = cy - BEAM_HH - rad - 10, openRight = r.x < L/2;
+    momentHalfArc(g, px, cyArc, rad, true, openRight, color, 2.6);
+    subLabel(g, px, cyArc-rad-11, name, '', ` = ${r.val.toFixed(0)} N·m`, {'text-anchor':'middle'}, color);
   } else if(r.type==='torque'){
     const yTop=cy-28, yBot=cy+28;
     torqueGlyph(g, px, yTop, yBot, true, color, 2.6);
