@@ -492,8 +492,13 @@ function renderPlacements(parent, xf, face){
       vArrow(g, vx, y1, y2, color, 3, 8);
       labelX = vx; labelY = CY_CUT-45;
     } else if(type==='moment'){
+      /* Same fixed openRight as the palette icon (and the loads/reaction
+         glyphs), on both faces — otherwise the glyph a student drags
+         flips to the mirrored half of the circle depending on which
+         face they drop it on, which reads as a different, wrong shape
+         even when the rotation itself is correct. */
       const mx = xf+gapSide*off;
-      momentHalfArc(g, mx, CY_CUT, 15, p.dir>=0, !isLeft, color, 2.6);
+      momentHalfArc(g, mx, CY_CUT, 15, p.dir>=0, true, color, 2.6);
       labelX = mx; labelY = CY_CUT+45;
     } else if(type==='torque'){
       const tx = xf+gapSide*off;
@@ -582,7 +587,7 @@ function buildPalette(){
     const color = '#1F7A6C';
     if(type==='axial') hArrow(svgEl, 20-dir*14, 20, 20+dir*14, color, 3.4, 9);
     else if(type==='transverse') vArrow(svgEl, 20, 20+dir*14, 20-dir*14, color, 3.4, 9);
-    else if(type==='moment') momentHalfArc(svgEl, 20, 20, 12, dir>=0, false, color, 3.2);
+    else if(type==='moment') momentHalfArc(svgEl, 20, 20, 12, dir>=0, true, color, 3.2);
     else if(type==='torque') torqueGlyph(svgEl, 20, 6, 34, dir>=0, color, 3.2);
     itemEl.addEventListener('pointerdown', evt=>{
       evt.preventDefault();
