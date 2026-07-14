@@ -631,10 +631,15 @@ function checkAnswer(){
   const trueVals = computeInternal(cutX);
   const isZeroType = type => Math.abs(trueVals[TRUE_KEY[type]]) < ZERO_TOL;
 
+  /* A zero-valued channel is optional — omitting it entirely is fine and
+     not flagged. But a half-placed pair (one face only) can't be graded
+     for consistency, so that still counts as incomplete. */
   const missing = [];
   ALL_TYPES.forEach(type=>{
-    if(!placements.left[type]) missing.push(`${TYPE_LABEL[type]} on the left face`);
-    if(!placements.right[type]) missing.push(`${TYPE_LABEL[type]} on the right face`);
+    const hasLeft = !!placements.left[type], hasRight = !!placements.right[type];
+    if(isZeroType(type) && !hasLeft && !hasRight) return;
+    if(!hasLeft) missing.push(`${TYPE_LABEL[type]} on the left face`);
+    if(!hasRight) missing.push(`${TYPE_LABEL[type]} on the right face`);
   });
   if(missing.length){
     checked = false;
@@ -647,6 +652,7 @@ function checkAnswer(){
   const conventionIssues = [], consistencyIssues = [], zeroNotes = [];
   ALL_TYPES.forEach(type=>{
     const Lp = placements.left[type], Rp = placements.right[type];
+    if(!Lp && !Rp) return; // omitted zero-valued channel — nothing to grade
     /* Zero-valued channels are graded exactly like any other — sign
        convention and equal-and-opposite still apply. Being zero is
        called out separately below, regardless of whether it's correct. */
