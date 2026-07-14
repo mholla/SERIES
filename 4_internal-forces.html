@@ -9,9 +9,9 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --paper:#EFF2ED; --ink:#1B2B3A; --steel:#78838F; --steel-light:#C7CEC6;
-    --force:#AE3527; --teal:#1F7A6C; --teal-soft:#D6E7E2;
-    --panel-bg:#FFFFFF; --panel-border:#D7DBD1; --warn:#B8860B;
+    --paper:#EEF0F1; --ink:#1B2B3A; --steel:#78838F; --steel-light:#CBD0D3;
+    --force:#AE3527; --blue:#1D5DA6; --blue-soft:#DCE7F3;
+    --panel-bg:#FFFFFF; --panel-border:#D7D9DB; --warn:#B8860B;
   }
   *{box-sizing:border-box;}
   body{margin:0;background:var(--paper);color:var(--ink);font-family:'IBM Plex Sans',sans-serif;-webkit-font-smoothing:antialiased;}
@@ -33,7 +33,7 @@
   .palette-label{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--steel);letter-spacing:0.04em;text-transform:uppercase;margin-right:2px;margin-bottom:9px;}
   .palette-group{
     display:flex;flex-direction:column;align-items:center;gap:5px;
-    padding:7px 8px;border:1.5px solid var(--teal);border-radius:8px;background:var(--teal-soft);
+    padding:7px 8px;border:1.5px solid var(--blue);border-radius:8px;background:var(--blue-soft);
   }
   .dir-pair{display:flex;gap:3px;}
   .palette-item{
@@ -57,13 +57,13 @@
   }
   button.action-btn:hover{background:var(--ink);color:var(--paper);}
   button.action-btn.primary{background:var(--ink);color:var(--paper);}
-  button.action-btn.primary:hover{background:var(--teal);border-color:var(--teal);}
+  button.action-btn.primary:hover{background:var(--blue);border-color:var(--blue);}
   button.action-btn:disabled{opacity:0.4;cursor:default;}
   button.action-btn:disabled:hover{background:transparent;color:var(--ink);}
 
   #resultBanner{display:none;margin-top:16px;border-radius:6px;padding:14px 18px;font-size:14px;line-height:1.5;}
   #resultBanner.show{display:block;}
-  #resultBanner.ok{border:1.5px solid var(--teal);background:var(--teal-soft);}
+  #resultBanner.ok{border:1.5px solid var(--blue);background:var(--blue-soft);}
   #resultBanner.bad{border:1.5px solid var(--force);background:#F6E4E1;}
   #resultBanner > b{display:block;font-size:15px;margin-bottom:4px;}
   #resultBanner ul{margin:6px 0 0;padding-left:18px;}
@@ -82,7 +82,7 @@
     </div>
     <div class="legend">
       <span><span class="swatch" style="background:var(--force)"></span>load / reaction / internal action</span>
-      <span><span class="swatch" style="background:var(--teal)"></span>your placement</span>
+      <span><span class="swatch" style="background:var(--blue)"></span>your placement</span>
     </div>
   </header>
 
@@ -474,8 +474,8 @@ function renderTopDiagram(){
   const labels = reactionLabels();
   reactions.forEach((r,i)=> drawReactionGlyph(g, r, CY_TOP, 'var(--force)', labels[i]));
   const cutXpix = xPix(cutX);
-  el('line',{x1:cutXpix,y1:CY_TOP-BEAM_HH-16,x2:cutXpix,y2:CY_TOP+BEAM_HH+58,stroke:'var(--teal)','stroke-width':2,'stroke-dasharray':'4,3'},g);
-  text(cutXpix, CY_TOP-BEAM_HH-22, 'CUT', {'text-anchor':'middle','font-weight':700,fill:'var(--teal)'}, g);
+  el('line',{x1:cutXpix,y1:CY_TOP-BEAM_HH-16,x2:cutXpix,y2:CY_TOP+BEAM_HH+58,stroke:'var(--blue)','stroke-width':2,'stroke-dasharray':'4,3'},g);
+  text(cutXpix, CY_TOP-BEAM_HH-22, 'CUT', {'text-anchor':'middle','font-weight':700,fill:'var(--blue)'}, g);
   drawAxisIndicator(g, 40, 202, 22);
 }
 
@@ -496,10 +496,10 @@ function renderPlacements(parent, xf, face){
   const slots = placements[face];
   Object.keys(slots).forEach(type=>{
     const p = slots[type];
-    /* Placed glyphs always stay teal, whether checked or not — right vs.
+    /* Placed glyphs always stay blue, whether checked or not — right vs.
        wrong is conveyed through the result banner's text, not by turning
        the glyph red. */
-    const color = 'var(--teal)';
+    const color = 'var(--blue)';
     const g = el('g',{style:'cursor:pointer'},parent);
     g.addEventListener('click', ()=>removePlacement(face,type));
     const off = TYPE_OFFSET[type];
@@ -617,7 +617,7 @@ function buildPalette(){
   row.querySelectorAll('.palette-item').forEach(itemEl=>{
     const type = itemEl.dataset.type, dir = parseInt(itemEl.dataset.dir,10);
     const svgEl = itemEl.querySelector('svg');
-    const color = '#1F7A6C';
+    const color = '#1D5DA6';
     if(type==='axial') hArrow(svgEl, 20-dir*14, 20, 20+dir*14, color, 3.4, 9);
     else if(type==='transverse') vArrow(svgEl, 20, 20+dir*14, 20-dir*14, color, 3.4, 9);
     else if(type==='moment') momentRotateIcon(svgEl, 20, 20, 12, dir>=0, color, 3.2);
