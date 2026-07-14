@@ -731,7 +731,7 @@ function checkAnswer(){
   const trueVals = computeInternal(cutX);
   const isZeroType = type => Math.abs(trueVals[TRUE_KEY[type]]) < ZERO_TOL;
 
-  const missing = [], errors = [], notes = [];
+  const errors = [], notes = [];
   ALL_TYPES.forEach(type=>{
     const Lp = placements.left[type], Rp = placements.right[type];
     if(isZeroType(type)){
@@ -752,20 +752,30 @@ function checkAnswer(){
       }
       const hadIssue = gradeChannel(type, Lp, Rp, errors, true);
       if(!hadIssue) notes.push(`${bold(type)} is zero here.`);
+    } else if(!Lp && !Rp){
+      errors.push(`There's an issue with ${bold(type)} — it's missing entirely.`);
+    } else if(!Lp || !Rp){
+      /* Missing one face AND the lone placed face being wrong are two
+         separate problems that can both be true at once — combine them
+         into one message instead of two disconnected bullets. */
+      const missingFace = !Lp ? 'left' : 'right';
+      const p = Lp || Rp, isLeft = !!Lp, correctDir = isLeft ? 1 : -1;
+      if(p.dir === correctDir){
+        errors.push(`There's an issue with ${bold(type)} — it's missing on the ${missingFace} face.`);
+      } else {
+        errors.push(`There are several issues with ${bold(type)} — it's missing on the ${missingFace} face, and on the ${isLeft?'left':'right'} face it does not follow the sign convention.`);
+      }
     } else {
-      if(!Lp) missing.push(`${bold(type)} on the left face`);
-      if(!Rp) missing.push(`${bold(type)} on the right face`);
       gradeChannel(type, Lp, Rp, errors);
     }
   });
 
   checked = true;
-  const hasIssues = missing.length || errors.length;
+  const hasIssues = errors.length > 0;
   const headline = hasIssues ? 'Not quite' : 'Correct!';
   banner.className = 'show ' + (hasIssues ? 'bad' : 'ok');
-  const allErrors = [...missing.map(m=>`Missing ${m}.`), ...errors];
   let html = `<b>${headline}</b>`;
-  if(allErrors.length) html += `<ul class="errors">${allErrors.map(n=>`<li>${n}</li>`).join('')}</ul>`;
+  if(errors.length) html += `<ul class="errors">${errors.map(n=>`<li>${n}</li>`).join('')}</ul>`;
   if(notes.length) html += `<div class="notes-label">Notes</div><ul class="notes">${notes.map(n=>`<li>${n}</li>`).join('')}</ul>`;
   banner.innerHTML = html;
   renderCutView();
