@@ -65,6 +65,25 @@
   #resultBanner.bad{border:1.5px solid var(--force);background:#F6E4E1;}
   #resultBanner b{display:block;font-size:15px;margin-bottom:4px;}
   #resultBanner ul{margin:6px 0 0;padding-left:18px;}
+  .report-fab{position:fixed;bottom:20px;right:20px;z-index:40;font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:12.5px;border:1.5px solid var(--ink);background:var(--paper);color:var(--ink);padding:9px 16px;border-radius:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);}
+  .report-fab:hover{background:var(--ink);color:var(--paper);}
+  .report-modal-overlay{display:none;position:fixed;inset:0;background:rgba(27,43,58,0.45);z-index:50;align-items:center;justify-content:center;padding:20px;}
+  .report-modal-overlay.show{display:flex;}
+  .report-modal{background:var(--paper);border:1px solid var(--panel-border);border-radius:8px;padding:22px 24px;max-width:440px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,0.28);}
+  .report-modal h3{margin:0 0 8px;font-size:16px;}
+  .report-note{font-size:12.5px;color:var(--steel);margin:0 0 16px;line-height:1.45;}
+  .report-label{display:block;font-size:12px;font-weight:600;margin:12px 0 4px;}
+  .report-optional{font-weight:400;color:var(--steel);}
+  .report-input, .report-textarea{width:100%;font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:8px 10px;border:1px solid var(--panel-border);border-radius:4px;background:#fff;color:var(--ink);box-sizing:border-box;}
+  .report-textarea{min-height:70px;resize:vertical;}
+  .report-checkbox-row{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--steel);margin-top:14px;}
+  .report-checkbox-row input{margin:0;}
+  .report-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
+  #reportSend{background:var(--ink);color:var(--paper);}
+  #reportSend:hover{background:var(--steel);}
+  #reportSend:disabled{opacity:0.6;cursor:default;}
+  .report-status{font-size:12px;margin:10px 0 0;color:var(--blue);min-height:14px;}
+  .report-status.error{color:var(--force);}
 </style>
 </head>
 <body>
@@ -133,6 +152,24 @@
 </div>
 
 <div id="ghostLayer"></div>
+
+<button id="reportBtn" class="report-fab" type="button">Report an issue</button>
+<div id="reportModal" class="report-modal-overlay">
+  <div class="report-modal">
+    <h3>Report an issue</h3>
+    <p class="report-note">Spotted something wrong with this visualization? This report is anonymous unless you add your name below. It includes a diagnostic snapshot of the current problem, and — if the box below stays checked — a screenshot of what you're seeing.</p>
+    <label class="report-label">Your name <span class="report-optional">(optional)</span></label>
+    <input type="text" id="reportName" class="report-input" placeholder="Leave blank to stay anonymous">
+    <label class="report-label">What looks wrong? <span class="report-optional">(optional)</span></label>
+    <textarea id="reportDesc" class="report-textarea" placeholder="Describe what you think is incorrect..."></textarea>
+    <label class="report-checkbox-row"><input type="checkbox" id="reportScreenshot" checked> Include a screenshot of the current view</label>
+    <div class="report-actions">
+      <button class="action-btn" id="reportCancel" type="button">Cancel</button>
+      <button class="action-btn" id="reportSend" type="button">Send report</button>
+    </div>
+    <p id="reportStatus" class="report-status"></p>
+  </div>
+</div>
 
 <script>
 /* ---------- Geometry / constants ---------- */
@@ -962,6 +999,128 @@ resetBtn.addEventListener('click', ()=>{
 buildPaletteIcons();
 randomizeLoads();
 renderStatic();
+
+/* ---------- Report an issue ---------- */
+const REPORT_ENDPOINT = 'https://formspree.io/f/xkodgkjj';
+const reportModal = document.getElementById('reportModal');
+const reportStatusEl = document.getElementById('reportStatus');
+
+function extractRootVars(){
+  const cs = getComputedStyle(document.documentElement);
+  const names = ['--paper','--ink','--steel','--steel-light','--force','--blue','--blue-soft','--panel-bg','--panel-border','--warn'];
+  return names.map(n=>{ const v=cs.getPropertyValue(n).trim(); return v?`${n}:${v};`:''; }).join('');
+}
+
+async function captureScreenshot(){
+  const svgs = Array.from(document.querySelectorAll('svg')).filter(s=>{
+    const r = s.getBoundingClientRect();
+    return r.width>0 && r.height>0 && s.offsetParent!==null;
+  });
+  if(!svgs.length) return null;
+  const rootVarsCSS = extractRootVars();
+  const rendered = [];
+  for(const svg of svgs){
+    const vb = svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width ? svg.viewBox.baseVal : null;
+    const rect = svg.getBoundingClientRect();
+    const w = vb ? vb.width : rect.width;
+    const h = vb ? vb.height : rect.height;
+    if(!w || !h) continue;
+    const clone = svg.cloneNode(true);
+    clone.setAttribute('width', w);
+    clone.setAttribute('height', h);
+    clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
+    const styleEl = document.createElementNS('http://www.w3.org/2000/svg','style');
+    styleEl.textContent = `:root{${rootVarsCSS}} text{font-family:'IBM Plex Mono',monospace;}`;
+    clone.insertBefore(styleEl, clone.firstChild);
+    const svgStr = new XMLSerializer().serializeToString(clone);
+    const dataUrl = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgStr)));
+    const img = await new Promise(resolve=>{
+      const im = new Image();
+      im.onload = ()=>resolve(im);
+      im.onerror = ()=>resolve(null);
+      im.src = dataUrl;
+    });
+    if(img) rendered.push({img,w,h});
+  }
+  if(!rendered.length) return null;
+  const scale = 2;
+  const totalH = rendered.reduce((s,r)=>s+r.h,0);
+  const maxW = Math.max(...rendered.map(r=>r.w));
+  const canvas = document.createElement('canvas');
+  canvas.width = maxW*scale; canvas.height = totalH*scale;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(scale,scale);
+  ctx.fillStyle = getComputedStyle(document.body).backgroundColor || '#EEF0F1';
+  ctx.fillRect(0,0,maxW,totalH);
+  let y = 0;
+  for(const r of rendered){ ctx.drawImage(r.img,0,y,r.w,r.h); y+=r.h; }
+  return await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+}
+
+function collectState(){
+  return { loads, reactions, solvedShown };
+}
+
+function openReportModal(){
+  reportStatusEl.textContent = '';
+  reportStatusEl.className = 'report-status';
+  document.getElementById('reportName').value = '';
+  document.getElementById('reportDesc').value = '';
+  document.getElementById('reportScreenshot').checked = true;
+  reportModal.classList.add('show');
+}
+function closeReportModal(){ reportModal.classList.remove('show'); }
+
+document.getElementById('reportBtn').addEventListener('click', openReportModal);
+document.getElementById('reportCancel').addEventListener('click', closeReportModal);
+reportModal.addEventListener('click', (e)=>{ if(e.target===reportModal) closeReportModal(); });
+
+document.getElementById('reportSend').addEventListener('click', async ()=>{
+  const sendBtn = document.getElementById('reportSend');
+  sendBtn.disabled = true;
+  reportStatusEl.className = 'report-status';
+  reportStatusEl.textContent = 'Sending…';
+
+  const name = document.getElementById('reportName').value.trim();
+  const description = document.getElementById('reportDesc').value.trim();
+  const wantsScreenshot = document.getElementById('reportScreenshot').checked;
+
+  const diagnostics = {
+    page: document.title,
+    file: location.pathname.split('/').pop(),
+    time: new Date().toISOString(),
+    viewport: `${window.innerWidth}x${window.innerHeight}`,
+    state: collectState()
+  };
+
+  const fd = new FormData();
+  fd.append('name', name || 'Anonymous');
+  fd.append('description', description || '(no description provided)');
+  fd.append('_subject', `SERIES report — ${document.title}${name ? ' — from '+name : ' (anonymous)'}`);
+  fd.append('diagnostics', JSON.stringify(diagnostics, null, 2));
+
+  if(wantsScreenshot){
+    try{
+      const blob = await captureScreenshot();
+      if(blob) fd.append('screenshot', blob, 'screenshot.png');
+    }catch(err){ /* best-effort — send report without screenshot if capture fails */ }
+  }
+
+  try{
+    const res = await fetch(REPORT_ENDPOINT, { method:'POST', body: fd, headers:{ 'Accept':'application/json' } });
+    if(res.ok){
+      reportStatusEl.textContent = 'Report sent — thank you!';
+      setTimeout(closeReportModal, 1600);
+    } else {
+      reportStatusEl.className = 'report-status error';
+      reportStatusEl.textContent = 'Could not send report. Please try again later.';
+    }
+  }catch(err){
+    reportStatusEl.className = 'report-status error';
+    reportStatusEl.textContent = 'Could not send report. Please try again later.';
+  }
+  sendBtn.disabled = false;
+});
 </script>
 </body>
 </html>
