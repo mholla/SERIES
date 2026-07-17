@@ -147,6 +147,15 @@
   </div>
 </div>
 
+<iframe name="reportFrame" style="display:none" title="report submission"></iframe>
+<form id="reportForm" action="https://formspree.io/f/xkodgkjj" method="POST" enctype="multipart/form-data" target="reportFrame" style="display:none">
+  <input type="hidden" name="name" id="fReportName">
+  <input type="hidden" name="description" id="fReportDescription">
+  <input type="hidden" name="_subject" id="fReportSubject">
+  <input type="hidden" name="diagnostics" id="fReportDiagnostics">
+  <input type="file" name="screenshot" id="fReportScreenshot">
+</form>
+
 <script>
 /* ---------- Data model ----------
    P is always a positive MAGNITUDE. dir tells you which way it actually points
@@ -547,6 +556,7 @@ renderForceDiagram();
 const REPORT_ENDPOINT = 'https://formspree.io/f/xkodgkjj';
 const reportModal = document.getElementById('reportModal');
 const reportStatusEl = document.getElementById('reportStatus');
+document.getElementById('reportForm').action = REPORT_ENDPOINT;
 
 function extractRootVars(){
   const cs = getComputedStyle(document.documentElement);
@@ -641,33 +651,43 @@ document.getElementById('reportSend').addEventListener('click', async ()=>{
     state: collectState()
   };
 
-  const fd = new FormData();
-  fd.append('name', name || 'Anonymous');
-  fd.append('description', description || '(no description provided)');
-  fd.append('_subject', `SERIES report — ${document.title}${name ? ' — from '+name : ' (anonymous)'}`);
-  fd.append('diagnostics', JSON.stringify(diagnostics, null, 2));
+  /* Submitted as a real (hidden-iframe-targeted) form POST rather than
+     fetch(): Formspree's AJAX endpoint requires a verified page origin for
+     CORS, which a local file:// page never has. A plain form submission
+     isn't subject to CORS at all, so this works whether the file is opened
+     locally or hosted anywhere. */
+  document.getElementById('fReportName').value = name || 'Anonymous';
+  document.getElementById('fReportDescription').value = description || '(no description provided)';
+  document.getElementById('fReportSubject').value = `SERIES report — ${document.title}${name ? ' — from '+name : ' (anonymous)'}`;
+  document.getElementById('fReportDiagnostics').value = JSON.stringify(diagnostics, null, 2);
 
+  const fileInput = document.getElementById('fReportScreenshot');
+  fileInput.value = '';
   if(wantsScreenshot){
     try{
       const blob = await captureScreenshot();
-      if(blob) fd.append('screenshot', blob, 'screenshot.png');
+      if(blob){
+        const dt = new DataTransfer();
+        dt.items.add(new File([blob], 'screenshot.png', {type:'image/png'}));
+        fileInput.files = dt.files;
+      }
     }catch(err){ /* best-effort — send report without screenshot if capture fails */ }
   }
 
-  try{
-    const res = await fetch(REPORT_ENDPOINT, { method:'POST', body: fd, headers:{ 'Accept':'application/json' } });
-    if(res.ok){
-      reportStatusEl.textContent = 'Report sent — thank you!';
-      setTimeout(closeReportModal, 1600);
-    } else {
-      reportStatusEl.className = 'report-status error';
-      reportStatusEl.textContent = 'Could not send report. Please try again later.';
-    }
-  }catch(err){
-    reportStatusEl.className = 'report-status error';
-    reportStatusEl.textContent = 'Could not send report. Please try again later.';
-  }
-  sendBtn.disabled = false;
+  const frame = document.querySelector('iframe[name="reportFrame"]');
+  let settled = false;
+  const finish = () => {
+    if(settled) return;
+    settled = true;
+    frame.removeEventListener('load', finish);
+    reportStatusEl.textContent = 'Report sent — thank you!';
+    sendBtn.disabled = false;
+    setTimeout(closeReportModal, 1600);
+  };
+  frame.addEventListener('load', finish);
+  setTimeout(finish, 4000); /* fallback in case the load event doesn't fire */
+
+  document.getElementById('reportForm').submit();
 });
 </script>
 </body>
