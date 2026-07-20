@@ -77,14 +77,13 @@
   .report-optional{font-weight:400;color:var(--steel);}
   .report-input, .report-textarea{width:100%;font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:8px 10px;border:1px solid var(--panel-border);border-radius:4px;background:#fff;color:var(--ink);box-sizing:border-box;}
   .report-textarea{min-height:70px;resize:vertical;}
-  .report-checkbox-row{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--steel);margin-top:14px;}
-  .report-checkbox-row input{margin:0;}
   .report-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
   #reportSend{background:var(--ink);color:var(--paper);}
   #reportSend:hover{background:var(--steel);}
   #reportSend:disabled{opacity:0.6;cursor:default;}
   .report-status{font-size:12px;margin:10px 0 0;color:var(--blue);min-height:14px;}
   .report-status.error{color:var(--force);}
+  .replay-banner{position:sticky;top:0;z-index:60;background:var(--blue);color:#fff;text-align:center;font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:13px;padding:8px 14px;}
 </style>
 </head>
 <body>
@@ -165,12 +164,11 @@
 <div id="reportModal" class="report-modal-overlay">
   <div class="report-modal">
     <h3>Report an issue</h3>
-    <p class="report-note">Spotted something wrong with this visualization? This report is anonymous unless you add your name below. It includes a diagnostic snapshot of the current problem, and — if the box below stays checked — a screenshot of what you're seeing.</p>
+    <p class="report-note">Spotted something wrong with this visualization? This report is anonymous unless you add your name below. It includes a diagnostic snapshot of the current problem, plus a link that reopens this exact scenario so it can be reproduced.</p>
     <label class="report-label">Your name <span class="report-optional">(optional)</span></label>
     <input type="text" id="reportName" class="report-input" placeholder="Leave blank to stay anonymous">
     <label class="report-label">What looks wrong? <span class="report-optional">(optional)</span></label>
     <textarea id="reportDesc" class="report-textarea" placeholder="Describe what you think is incorrect..."></textarea>
-    <label class="report-checkbox-row"><input type="checkbox" id="reportScreenshot" checked> Include a screenshot of the current view</label>
     <div class="report-actions">
       <button class="reset-btn" id="reportCancel" type="button">Cancel</button>
       <button class="reset-btn" id="reportSend" type="button">Send report</button>
@@ -180,12 +178,12 @@
 </div>
 
 <iframe name="reportFrame" style="display:none" title="report submission"></iframe>
-<form id="reportForm" action="https://formspree.io/f/xkodgkjj" method="POST" enctype="multipart/form-data" target="reportFrame" style="display:none">
+<form id="reportForm" action="https://formspree.io/f/xkodgkjj" method="POST" target="reportFrame" style="display:none">
   <input type="hidden" name="name" id="fReportName">
   <input type="hidden" name="description" id="fReportDescription">
   <input type="hidden" name="_subject" id="fReportSubject">
   <input type="hidden" name="diagnostics" id="fReportDiagnostics">
-  <input type="file" name="screenshot" id="fReportScreenshot">
+  <input type="hidden" name="reproduction_link" id="fReportRepro">
 </form>
 
 <script>
@@ -747,71 +745,21 @@ document.getElementById('newProblemBtn').addEventListener('click', ()=>{
 });
 
 /* ---------- Initialize ---------- */
-randomizeLoads();
-renderReactionsPanel();
-buildTopDiagram();
-computeRanges();
-renderShearDiagram();
-renderMomentDiagram();
-renderBottomSchematic();
+if(!tryReplayFromURL()){
+  randomizeLoads();
+  renderReactionsPanel();
+  buildTopDiagram();
+  computeRanges();
+  renderShearDiagram();
+  renderMomentDiagram();
+  renderBottomSchematic();
+}
 
 /* ---------- Report an issue ---------- */
 const REPORT_ENDPOINT = 'https://formspree.io/f/xkodgkjj';
 const reportModal = document.getElementById('reportModal');
 const reportStatusEl = document.getElementById('reportStatus');
 document.getElementById('reportForm').action = REPORT_ENDPOINT;
-
-function extractRootVars(){
-  const cs = getComputedStyle(document.documentElement);
-  const names = ['--paper','--ink','--steel','--steel-light','--force','--blue','--blue-soft','--panel-bg','--panel-border','--warn'];
-  return names.map(n=>{ const v=cs.getPropertyValue(n).trim(); return v?`${n}:${v};`:''; }).join('');
-}
-
-async function captureScreenshot(){
-  const svgs = Array.from(document.querySelectorAll('svg')).filter(s=>{
-    const r = s.getBoundingClientRect();
-    return r.width>0 && r.height>0 && s.offsetParent!==null;
-  });
-  if(!svgs.length) return null;
-  const rootVarsCSS = extractRootVars();
-  const rendered = [];
-  for(const svg of svgs){
-    const vb = svg.viewBox && svg.viewBox.baseVal && svg.viewBox.baseVal.width ? svg.viewBox.baseVal : null;
-    const rect = svg.getBoundingClientRect();
-    const w = vb ? vb.width : rect.width;
-    const h = vb ? vb.height : rect.height;
-    if(!w || !h) continue;
-    const clone = svg.cloneNode(true);
-    clone.setAttribute('width', w);
-    clone.setAttribute('height', h);
-    clone.setAttribute('xmlns','http://www.w3.org/2000/svg');
-    const styleEl = document.createElementNS('http://www.w3.org/2000/svg','style');
-    styleEl.textContent = `:root{${rootVarsCSS}} text{font-family:'IBM Plex Mono',monospace;}`;
-    clone.insertBefore(styleEl, clone.firstChild);
-    const svgStr = new XMLSerializer().serializeToString(clone);
-    const dataUrl = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgStr)));
-    const img = await new Promise(resolve=>{
-      const im = new Image();
-      im.onload = ()=>resolve(im);
-      im.onerror = ()=>resolve(null);
-      im.src = dataUrl;
-    });
-    if(img) rendered.push({img,w,h});
-  }
-  if(!rendered.length) return null;
-  const scale = 2;
-  const totalH = rendered.reduce((s,r)=>s+r.h,0);
-  const maxW = Math.max(...rendered.map(r=>r.w));
-  const canvas = document.createElement('canvas');
-  canvas.width = maxW*scale; canvas.height = totalH*scale;
-  const ctx = canvas.getContext('2d');
-  ctx.scale(scale,scale);
-  ctx.fillStyle = getComputedStyle(document.body).backgroundColor || '#EEF0F1';
-  ctx.fillRect(0,0,maxW,totalH);
-  let y = 0;
-  for(const r of rendered){ ctx.drawImage(r.img,0,y,r.w,r.h); y+=r.h; }
-  return await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
-}
 
 function collectState(){
   return {
@@ -822,12 +770,58 @@ function collectState(){
   };
 }
 
+/* Encodes the current state into the page's own URL so a report's
+   "reproduction link" reopens this exact scenario, replayed live in the
+   tool — more useful than a static picture, and avoids Formspree's
+   file-upload restriction entirely since it's just a query string. */
+function buildReproUrl(state){
+  const base = location.href.split('?')[0].split('#')[0];
+  return `${base}?state=${encodeURIComponent(JSON.stringify(state))}`;
+}
+
+function showReplayBanner(){
+  const b = document.createElement('div');
+  b.className = 'replay-banner';
+  b.textContent = 'Viewing a reconstructed report — not a live random problem.';
+  document.body.insertBefore(b, document.body.firstChild);
+}
+
+/* Returns true and replays the reported scenario if the page was opened
+   via a reproduction link (?state=...); returns false for a normal load. */
+function tryReplayFromURL(){
+  let urlState;
+  try{
+    const raw = new URLSearchParams(location.search).get('state');
+    if(!raw) return false;
+    urlState = JSON.parse(raw);
+  }catch(err){ return false; }
+  if(!urlState.loads) return false;
+
+  P_A = urlState.loads.P_A;
+  P_C = urlState.loads.P_C;
+  P_E = urlState.loads.P_E;
+  M_E = urlState.loads.M_E;
+  posM = { A:0, B:a_val, C:2*a_val, D:3*a_val, E:4*a_val };
+  SCALE = 720/(4*a_val);
+  computeReactions();
+  renderReactionsPanel();
+  buildTopDiagram();
+  computeRanges();
+  renderShearDiagram();
+  renderMomentDiagram();
+  renderBottomSchematic();
+  if(urlState.hasCut && Array.isArray(urlState.plotV)){
+    urlState.plotV.forEach(p=>{ if(typeof p.x === 'number') attemptCut(p.x); });
+  }
+  showReplayBanner();
+  return true;
+}
+
 function openReportModal(){
   reportStatusEl.textContent = '';
   reportStatusEl.className = 'report-status';
   document.getElementById('reportName').value = '';
   document.getElementById('reportDesc').value = '';
-  document.getElementById('reportScreenshot').checked = true;
   reportModal.classList.add('show');
 }
 function closeReportModal(){ reportModal.classList.remove('show'); }
@@ -844,14 +838,15 @@ document.getElementById('reportSend').addEventListener('click', async ()=>{
 
   const name = document.getElementById('reportName').value.trim();
   const description = document.getElementById('reportDesc').value.trim();
-  const wantsScreenshot = document.getElementById('reportScreenshot').checked;
 
+  const stateSnapshot = collectState();
   const diagnostics = {
     page: document.title,
     file: location.pathname.split('/').pop(),
     time: new Date().toISOString(),
     viewport: `${window.innerWidth}x${window.innerHeight}`,
-    state: collectState()
+    state: stateSnapshot,
+    reproUrl: buildReproUrl(stateSnapshot)
   };
 
   /* Submitted as a real (hidden-iframe-targeted) form POST rather than
@@ -863,19 +858,7 @@ document.getElementById('reportSend').addEventListener('click', async ()=>{
   document.getElementById('fReportDescription').value = description || '(no description provided)';
   document.getElementById('fReportSubject').value = `SERIES report — ${document.title}${name ? ' — from '+name : ' (anonymous)'}`;
   document.getElementById('fReportDiagnostics').value = JSON.stringify(diagnostics, null, 2);
-
-  const fileInput = document.getElementById('fReportScreenshot');
-  fileInput.value = '';
-  if(wantsScreenshot){
-    try{
-      const blob = await captureScreenshot();
-      if(blob){
-        const dt = new DataTransfer();
-        dt.items.add(new File([blob], 'screenshot.png', {type:'image/png'}));
-        fileInput.files = dt.files;
-      }
-    }catch(err){ /* best-effort — send report without screenshot if capture fails */ }
-  }
+  document.getElementById('fReportRepro').value = diagnostics.reproUrl;
 
   const frame = document.querySelector('iframe[name="reportFrame"]');
   let settled = false;
