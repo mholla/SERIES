@@ -437,14 +437,17 @@ function drawReactionGlyph(parent, r, cy, color, name, offset=0){
     vArrow(g, px, y1, y2, color, 3, 8);
     subLabel(g, px, y1+16, name, '', ` = ${r.val.toFixed(0)} N`, {'text-anchor':'middle'}, color);
   } else if(r.type==='moment'){
-    /* Tangent to the beam's top edge — flush against it like the other
-       reactions, not floating clear above with dead space — while still
-       staying clear of an axial reaction's arrow, which runs straight
-       through the beam's centerline at this same point. Open side faces
-       back toward the beam it's attached to. */
-    const rad=15, cyArc = cy - BEAM_HH - rad, openRight = r.x < L/2;
-    momentHalfArc(g, px, cyArc, rad, true, openRight, color, 2.6);
-    subLabel(g, px, cyArc-rad-11, name, '', ` = ${r.val.toFixed(0)} N·m`, {'text-anchor':'middle'}, color);
+    /* Centered on the beam axis, looping around it exactly like a moment
+       LOAD glyph (dipping into the beam surface) so it reads as part of
+       the beam rather than a symbol floating off to one side. Nudged off
+       its true x only in the rare case an axial reaction shares this
+       exact point — that arrow always points +x, so a small -x nudge is
+       enough to clear it. Open side faces back toward the beam. */
+    const rad=15, openRight = r.x < L/2;
+    const axialHere = reactions.some(rr=>rr.type==='axial' && rr.x===r.x);
+    const mpx = px - (axialHere?22:0);
+    momentHalfArc(g, mpx, cy, rad, true, openRight, color, 2.6);
+    subLabel(g, px, cy-rad-11-(axialHere?14:0), name, '', ` = ${r.val.toFixed(0)} N·m`, {'text-anchor':'middle'}, color);
   } else if(r.type==='torque'){
     const yTop=cy-28, yBot=cy+28;
     torqueGlyph(g, px, yTop, yBot, true, color, 2.6);
