@@ -90,9 +90,9 @@
 
   <header>
     <div class="title-block">
-      <div class="eyebrow">SERIES · Reactions & Stability</div>
+      <div class="eyebrow">SERIES · Reaction Forces</div>
       <h1>Reactions & Stability Playground</h1>
-      <p>A random set of loads is applied to this beam. Drag reactions onto it from the palette below, then press Play to see whether you've fully constrained it — or whether it flies away.</p>
+      <p>How many -- and what kind -- of reaction forces are required to constrain this beam?  What happens to the deformation where there are reactions?</p>
     </div>
     <div class="legend">
       <span><span class="swatch" style="background:var(--force)"></span>external forces</span>
@@ -103,7 +103,7 @@
   <div class="stage">
     <svg id="stage" viewBox="0 0 1100 340" preserveAspectRatio="xMidYMid meet"></svg>
     <div class="drop-hint">
-      <span id="hintText">Drag a reaction from below onto the beam. Click a placed reaction to remove it.</span>
+      <span id="hintText">Drag a reaction from below onto the beam. Click a placed reaction to remove it.  </span>
       <span id="countText"></span>
     </div>
   </div>
@@ -818,7 +818,7 @@ function endDrag(evt, sourceEl){
   if(sourceEl) sourceEl.classList.remove('dragging');
   if(ghostEl){ ghostEl.remove(); ghostEl=null; }
   dragItem = null;
-  document.getElementById('hintText').textContent = 'Drag a reaction from below onto the beam. Click a placed reaction to remove it.';
+  document.getElementById('hintText').textContent = "Add more reactions, or click 'Play' when you're ready to see what happens!";
 }
 document.querySelectorAll('.palette-item').forEach(itemEl=>{
   const type = itemEl.dataset.type;

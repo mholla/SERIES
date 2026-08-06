@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Torque Section Cut Explorer — Prob. 4.5-10</title>
+<title>Section Cut Explorer - Torques</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -88,8 +88,8 @@
 
   <header>
     <div class="title-block">
-      <div class="eyebrow">SERIES · Step 1 — Section (Torsion)</div>
-      <h1>Torque Section Cut Explorer</h1>
+      <div class="eyebrow">SERIES · Section Cuts</div>
+      <h1>Section Cut Explorer (Torques)</h1>
       <p>How many section cuts do you have to make to determine the internal torque at every point in this shaft?</p>
     </div>
     <div class="legend">
@@ -109,7 +109,7 @@
   <div class="stage">
     <svg id="diagram" viewBox="0 0 1100 260" preserveAspectRatio="xMidYMid meet"></svg>
     <div class="hint-bar">
-      <span id="liveReading">Click anywhere to determine the internal forces.</span>
+      <span id="liveReading">Click anywhere to make a section cut and reveal the internal torques.  Then scroll down!</span>
       <span id="xReadout"></span>
     </div>
   </div>
@@ -135,7 +135,7 @@
 
   <div id="plotSection">
     <div class="section-title">Internal torque vs. position</div>
-    <p class="section-sub">Every cut you make above drops a point here. Click a few spots in the same segment and watch them land on top of each other — then jump to the other side of a torque and watch the value snap to something new.</p>
+    <p class="section-sub">Every cut you make adds a point here equal to the internal torque. Make more cuts -- what do you notice about the internal torque in a given segment, and compared to a different segment?</p>
     <div class="stage">
       <svg id="forceDiagram" viewBox="0 0 1100 340" preserveAspectRatio="xMidYMid meet"></svg>
     </div>
@@ -398,7 +398,7 @@ function attemptCut(xin){
   drawWavyBreak(cutMarkerLayer, xPix(xin), halfHeight(seg), 'var(--blue)');
   hasCut = true;
   lastCutXin = xin;
-  liveReading.textContent = 'Cut made — now try a different segment (on the other side of an applied torque).';
+  liveReading.textContent = 'Now try a different segment -- perhaps on the other side of a concentrated load?';
   document.getElementById('plotSection').classList.add('show');
   renderCut(xin, R);
   plotPoints.push({x:xin, T:R.T});
@@ -523,13 +523,13 @@ function fillPanels(R, xin){
   const loadNodes = nodes.filter(n=>n.T!==undefined);
 
   const L = document.getElementById('panelLeftContent'); L.innerHTML='';
-  prose(L, 'The wall reaction — global equilibrium of the whole shaft about its axis, sign matching the arrow direction shown:');
+  prose(L, 'Reaction torque at the wall requires a FBD of the entire shaft:');
   kxAligned(L, [
     `\\Sigma M_x = 0 &= ${raTerm}${loadNodes.map(tTermSym).join('')}`,
     `R_A &= ${loadNodes.map(n=>((-dirTA*n.dir)>0?' + ':' - ')+`T_{${n.id}}`).join('')}`,
     `R_A &= ${loadNodes.map(n=>((-dirTA*n.dir)>0?' + ':' - ')+n.T.toFixed(1)).join('')} = ${T_A_mag.toFixed(1)}\\ \\text{N}\\cdot\\text{m}`
   ]);
-  prose(L, 'Now the left piece (A → cut), using that same R_A:');
+  prose(L, 'Now the internal torque at A can be found from the left FBD above:');
   kxAligned(L, [
     `\\Sigma M_x = 0 &= ${raTerm}${R.leftNodes.map(tTermSym).join('')} + T_{${k}}`,
     `T_{${k}} &= ${coeffTA>0?'R_A':'-R_A'}${R.leftNodes.map(n=>((-n.dir)>0?' + ':' - ')+`T_{${n.id}}`).join('')}`,
@@ -537,7 +537,7 @@ function fillPanels(R, xin){
   ]);
 
   const Rp = document.getElementById('panelRightContent'); Rp.innerHTML='';
-  prose(Rp, 'The right piece (cut → D) needs no reaction at all — fewer unknowns:');
+  prose(Rp, 'Using the right FBD above, the internal torque at A can be found directly from the FBD above (without calculating the reaction torque):');
   kxAligned(Rp, [
     `\\Sigma M_x = 0 &= -T_{${k}}${R.rightNodes.map(tTermSym).join('')}`,
     `T_{${k}} &= ${R.rightNodes.map(n=>(n.dir>0?' + ':' - ')+`T_{${n.id}}`).join('') || '0'}`,
@@ -548,7 +548,7 @@ function fillPanels(R, xin){
   const span = document.createElement('span');
   document.getElementById('agreeMath').appendChild(span);
   const noteTex = R.T<0 ? `\\ \\ (\\text{note the negative sign})` : '';
-  katex.render(`\\text{Both free bodies agree:}\\quad T_{${k}} = ${R.T.toFixed(2)}\\ \\text{N}\\cdot\\text{m}${noteTex}`, span, {throwOnError:false, displayMode:false});
+  katex.render(`\\text{Both approaches agree:}\\quad T_{${k}} = ${R.T.toFixed(2)}\\ \\text{N}\\cdot\\text{m}${noteTex}`, span, {throwOnError:false, displayMode:false});
 }
 
 /* ---------- Torque-vs-position plot ----------
@@ -604,7 +604,7 @@ function clearCutState(){
   document.getElementById('plotSection').classList.remove('show');
   hasCut = false;
   lastCutXin = null;
-  liveReading.textContent = 'Click anywhere to determine the internal forces.';
+  liveReading.textContent = 'Click anywhere to determine the internal torques.';
   xReadout.textContent = '';
 }
 document.getElementById('resetBtn').addEventListener('click', ()=>{

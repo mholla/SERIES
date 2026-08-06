@@ -96,7 +96,7 @@
     <div class="title-block">
       <div class="eyebrow">SERIES · Internal Forces</div>
       <h1>Internal Forces at a Cut</h1>
-      <p>A beam with random loads and the correct set of supports is cut at a random point. Drag the internal-force glyphs onto BOTH exposed faces, then check — we're looking for equal-and-opposite pairs drawn in the standard sign convention.</p>
+      <p>What kind of internal forces appear at the location of this section cut -- and in what directions?</p>
     </div>
     <div class="legend">
       <span><span class="swatch" style="background:var(--force)"></span>external forces</span>
@@ -113,7 +113,7 @@
   <div class="stage">
     <svg id="cutSvg" class="stagesvg" viewBox="-220 0 1540 420" preserveAspectRatio="xMidYMid meet"></svg>
     <div class="drop-hint">
-      <span id="hintText">Drag an internal-force glyph onto the LEFT or RIGHT cut face. Click a placed glyph to remove it.</span>
+      <span id="hintText">Drag an internal force onto either side of the cut. Click a placed force to remove it.</span>
     </div>
   </div>
 
@@ -740,7 +740,7 @@ function endDrag(evt, sourceEl){
   if(sourceEl) sourceEl.classList.remove('dragging');
   if(ghostEl){ ghostEl.remove(); ghostEl=null; }
   dragItem = null;
-  document.getElementById('hintText').textContent = 'Drag an internal-force glyph onto the LEFT or RIGHT cut face. Click a placed glyph to remove it.';
+  document.getElementById('hintText').textContent = "Add more internal forces, or click 'Check' when you think you're done!";
 }
 
 /* ---------- Check ----------

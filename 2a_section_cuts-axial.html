@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Section Cut Explorer — Prob. 3.4-3</title>
+<title>Section Cut Explorer - Axial Forces</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -77,8 +77,8 @@
 
   <header>
     <div class="title-block">
-      <div class="eyebrow">SERIES · Step 1 — Section</div>
-      <h1>Section Cut Explorer</h1>
+      <div class="eyebrow">SERIES · Section Cuts</div>
+      <h1>Section Cut Explorer (Axial Forces)</h1>
       <p>How many section cuts do you have to make to determine the force at every point in this member?</p>
     </div>
     <div class="legend">
@@ -90,7 +90,7 @@
   <div class="stage">
     <svg id="diagram" viewBox="0 0 1100 260" preserveAspectRatio="xMidYMid meet"></svg>
     <div class="hint-bar">
-      <span id="liveReading">Click anywhere to determine the internal forces.</span>
+      <span id="liveReading">Click anywhere to make a section cut and reveal the internal forces.  Then scroll down!</span>
       <span id="xReadout"></span>
     </div>
   </div>
@@ -116,7 +116,7 @@
 
   <div id="plotSection">
     <div class="section-title">Internal force vs. position</div>
-    <p class="section-sub">Every cut you make above drops a point here. Click a few spots in the same segment and watch them land on top of each other — then jump to the other side of a load and watch the value snap to something new.</p>
+    <p class="section-sub">Every cut you make adds a point here equal to the internal force. Make more cuts -- what do you notice about the internal force in a given segment, and compared to a different segment?</p>
     <div class="stage">
       <svg id="forceDiagram" viewBox="0 0 1100 340" preserveAspectRatio="xMidYMid meet"></svg>
     </div>
@@ -341,7 +341,7 @@ function attemptCut(xin){
   cutMarkerLayer.innerHTML='';
   drawWavyBreak(cutMarkerLayer, xPix(xin), halfHeight(seg), 'var(--blue)');
   hasCut = true;
-  liveReading.textContent = 'Cut made — now try a different segment (on the other side of a concentrated load).';
+  liveReading.textContent = 'Now try a different segment -- perhaps on the other side of a concentrated load?';
   document.getElementById('plotSection').classList.add('show');
   renderCut(xin, R);
   plotPoints.push({x:xin, F:R.F});
@@ -450,13 +450,13 @@ function fillPanels(R, xin){
   const loadNodes = nodes.filter(n=>n.P!==undefined);
 
   const L = document.getElementById('panelLeftContent'); L.innerHTML='';
-  prose(L, 'The wall reaction — global equilibrium of the whole bar, sign matching the arrow direction shown:');
+  prose(L, 'Reaction force at the wall requires a FBD of the entire bar:');
   kxAligned(L, [
     `\\Sigma F_x = 0 &= ${raTerm}${loadNodes.map(pTermSym).join('')}`,
     `R_A &= ${loadNodes.map(n=>((-dirRA*n.dir)>0?' + ':' - ')+`P_{${n.id}}`).join('')}`,
     `R_A &= ${loadNodes.map(n=>((-dirRA*n.dir)>0?' + ':' - ')+n.P.toFixed(1)).join('')} = ${R_A_mag.toFixed(1)}\\ \\text{kips}`
   ]);
-  prose(L, 'Now the left piece (A \u2192 cut), using that same R_A:');
+  prose(L, 'Now the internal force at A can be found from the left FBD above:');
   kxAligned(L, [
     `\\Sigma F_x = 0 &= ${raTerm}${R.leftNodes.map(pTermSym).join('')} + F_{${k}}`,
     `F_{${k}} &= ${coeffRA>0?'R_A':'-R_A'}${R.leftNodes.map(n=>((-n.dir)>0?' + ':' - ')+`P_{${n.id}}`).join('')}`,
@@ -464,7 +464,7 @@ function fillPanels(R, xin){
   ]);
 
   const Rp = document.getElementById('panelRightContent'); Rp.innerHTML='';
-  prose(Rp, 'The right piece (cut \u2192 D) needs no reaction at all \u2014 fewer unknowns:');
+  prose(Rp, 'Using the right FBD above, the internal force at A can be found directly from the FBD above (without calculating the reaction force):');
   kxAligned(Rp, [
     `\\Sigma F_x = 0 &= -F_{${k}}${R.rightNodes.map(pTermSym).join('')}`,
     `F_{${k}} &= ${R.rightNodes.map(n=>(n.dir>0?' + ':' - ')+`P_{${n.id}}`).join('') || '0'}`,
@@ -475,7 +475,7 @@ function fillPanels(R, xin){
   const span = document.createElement('span');
   document.getElementById('agreeMath').appendChild(span);
   const noteTex = R.F<0 ? `\\ \\ (\\text{negative} \\Rightarrow \\text{compression})` : '';
-  katex.render(`\\text{Both free bodies agree:}\\quad F_{${k}} = ${R.F.toFixed(2)}\\ \\text{kips}${noteTex}`, span, {throwOnError:false, displayMode:false});
+  katex.render(`\\text{Both approaches agree:}\\quad F_{${k}} = ${R.F.toFixed(2)}\\ \\text{kips}${noteTex}`, span, {throwOnError:false, displayMode:false});
 }
 
 /* ---------- Force-vs-position plot ----------

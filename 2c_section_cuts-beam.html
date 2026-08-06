@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Beam Section Cut Explorer</title>
+<title>Section Cut Explorer - Shear Forces and Bending Moments</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -91,8 +91,8 @@
 
   <header>
     <div class="title-block">
-      <div class="eyebrow">SERIES · Step 1 — Section (Beams)</div>
-      <h1>Beam Section Cut Explorer</h1>
+      <div class="eyebrow">SERIES · Section Cuts</div>
+      <h1>Section Cut Explorer (Shear Forces and Bending Moments)</h1>
       <p>How many section cuts do you have to make to determine the internal shear and moment at every point in this beam?</p>
     </div>
     <div class="legend">
@@ -104,7 +104,7 @@
   <div class="stage">
     <svg id="diagram" viewBox="0 0 1100 280" preserveAspectRatio="xMidYMid meet"></svg>
     <div class="hint-bar">
-      <span id="liveReading">Click anywhere to determine the internal forces.</span>
+      <span id="liveReading">Click anywhere to make a section cut and reveal the internal shear force and bending moment.  Then scroll down!</span>
       <span id="xReadout"></span>
     </div>
   </div>
@@ -141,14 +141,14 @@
       <svg id="bottomSchematic" viewBox="0 0 1100 190" preserveAspectRatio="xMidYMid meet"></svg>
     </div>
 
-    <div class="section-title">Shear vs. position</div>
-    <p class="section-sub">Every cut you make above drops a point here. Shear is piecewise constant — it only jumps where a concentrated load or reaction acts.</p>
+    <div class="section-title">Internal shear force vs. position</div>
+    <p class="section-sub">Every cut you make adds a point here equal to the internal shear force. Make more cuts -- what do you notice about the shear in a given segment, and compared to a different segment?</p>
     <div class="stage">
       <svg id="shearDiagram" viewBox="0 0 1100 190" preserveAspectRatio="xMidYMid meet"></svg>
     </div>
 
-    <div class="section-title">Moment vs. position</div>
-    <p class="section-sub">Moment is piecewise linear between loads — its slope changes wherever shear jumps. Watch it jump only where the applied couple at E acts.</p>
+    <div class="section-title">Internal bending moment vs. position</div>
+    <p class="section-sub">Every cut you make adds a point here equal to the internal bending moment. What do you notice about how the moment changes within a given segment, and compared to a different segment?</p>
     <div class="stage">
       <svg id="momentDiagram" viewBox="0 0 1100 190" preserveAspectRatio="xMidYMid meet"></svg>
     </div>
@@ -496,7 +496,7 @@ function attemptCut(xm){
   drawWavyBreak(cutMarkerLayer, xPix(xm), BEAM_HH, 'var(--blue)');
   hasCut = true;
   lastCutXm = xm;
-  liveReading.textContent = 'Cut made — now try a different segment (on the other side of a load or support).';
+  liveReading.textContent = 'Now try a different segment -- perhaps on the other side of a concentrated load?';
   document.getElementById('plotSection').classList.add('show');
   renderCut(xm, R);
   plotV.push({x:xm, V:R.V});
@@ -601,14 +601,15 @@ function renderReactionsPanel(){
   summary.innerHTML = `<b>Support reactions:</b> R<sub>B</sub> = ${R_B.toFixed(0)} N, R<sub>D</sub> = ${R_D.toFixed(0)} N. <span class="expand-hint">Expand to see calculations</span>`;
   const c = document.getElementById('reactionsContent');
   c.innerHTML = '';
-  prose(c, 'Global equilibrium of the whole beam. Sum moments about B first — it removes R_B from the equation:');
+  prose(c, 'From a FBD of the whole beam:')
+  prose(c, 'First, we sum moments about B:');
   const armC = posM.C-posM.B, armE = posM.E-posM.B, armA = posM.B-posM.A, armD = posM.D-posM.B;
   const numD = -P_A*armA + P_C*armC + P_E*armE - M_E;
   kxAligned(c, [
     `\\Sigma M_B = 0 &= P_A(a) - P_C(a) - P_E(3a) + M_E + R_D(2a)`,
     `R_D &= \\dfrac{-P_A(a) + P_C(a) + P_E(3a) - M_E}{2a} = \\dfrac{${numD.toFixed(0)}}{${armD.toFixed(0)}} = ${R_D.toFixed(0)}\\ \\text{N}`
   ]);
-  prose(c, 'Then sum vertical forces:');
+  prose(c, 'Then we sum vertical forces:');
   kxAligned(c, [
     `\\Sigma F_y = 0 &= R_B + R_D - P_A - P_C - P_E`,
     `R_B &= P_A + P_C + P_E - R_D = ${(P_A+P_C+P_E).toFixed(0)} - ${R_D.toFixed(0)} = ${R_B.toFixed(0)}\\ \\text{N}`
@@ -620,7 +621,7 @@ function fillPanels(R, xm){
   document.getElementById('agreement').classList.add('show');
 
   const L = document.getElementById('panelLeftContent'); L.innerHTML='';
-  prose(L, 'Sum forces on the left piece:');
+  prose(L, 'Sum forces on the left FBD:');
   const vTermsL = R.supLeft.map(s=>` + ${s.R.toFixed(0)}`).join('') + R.loadsLeft.map(n=>` - ${n.mag}`).join('');
   kxAligned(L, [
     `\\Sigma F_y = 0 &= ${R.supLeft.map(s=>`R_${s.id}`).join(' + ')||''}${R.loadsLeft.map(n=>` - P_{${n.id}}`).join('')} + V(x)`,
@@ -635,7 +636,7 @@ function fillPanels(R, xm){
   ]);
 
   const Rp = document.getElementById('panelRightContent'); Rp.innerHTML='';
-  prose(Rp, 'Sum forces on the right piece:');
+  prose(Rp, 'Sum forces on the right FBD:');
   kxAligned(Rp, [
     `\\Sigma F_y = 0 &= -V(x)${R.supRight.map(s=>` + R_${s.id}`).join('')}${R.loadsRight.map(n=>` - P_{${n.id}}`).join('')}`,
     `V(x) &= 0${R.supRight.map(s=>` + ${s.R.toFixed(0)}`).join('')}${R.loadsRight.map(n=>` - ${n.mag}`).join('')} = ${R.V_right.toFixed(0)}\\ \\text{N}`
@@ -649,9 +650,9 @@ function fillPanels(R, xm){
   ]);
 
   const vSpan = document.getElementById('agreeMathV');
-  katex.render(`\\text{Both free bodies agree:}\\quad V(x) = ${R.V.toFixed(0)}\\ \\text{N}`, vSpan, {throwOnError:false, displayMode:false});
+  katex.render(`\\text{Both approaches agree:}\\quad V(x) = ${R.V.toFixed(0)}\\ \\text{N}`, vSpan, mSpan, {throwOnError:false, displayMode:false});
   const mSpan = document.getElementById('agreeMathM');
-  katex.render(`\\text{Both free bodies agree:}\\quad M(x) = ${R.M.toFixed(0)}\\ \\text{N}\\cdot\\text{m}`, mSpan, {throwOnError:false, displayMode:false});
+  katex.render(`\\text{Both approaches agree:}\\quad M(x) = ${R.M.toFixed(0)}\\ \\text{N}\\cdot\\text{m}`,  {throwOnError:false, displayMode:false});
 }
 
 /* ---------- Shear / moment vs. position plots (data only — the beam
@@ -722,7 +723,7 @@ function clearCutState(){
   document.getElementById('plotSection').classList.remove('show');
   hasCut = false;
   lastCutXm = null;
-  liveReading.textContent = 'Click anywhere to determine the internal forces.';
+  liveReading.textContent = 'Click anywhere to determine the internal forces and moments.';
   xReadout.textContent = '';
 }
 document.getElementById('resetBtn').addEventListener('click', ()=>{
