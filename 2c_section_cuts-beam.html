@@ -66,6 +66,24 @@
     padding:6px 14px;border-radius:4px;cursor:pointer;
   }
   button.reset-btn:hover{background:var(--ink);color:var(--paper);}
+  .report-fab{position:fixed;bottom:20px;right:20px;z-index:40;font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:12.5px;border:1.5px solid var(--ink);background:var(--paper);color:var(--ink);padding:9px 16px;border-radius:20px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.15);}
+  .report-fab:hover{background:var(--ink);color:var(--paper);}
+  .report-modal-overlay{display:none;position:fixed;inset:0;background:rgba(27,43,58,0.45);z-index:50;align-items:center;justify-content:center;padding:20px;}
+  .report-modal-overlay.show{display:flex;}
+  .report-modal{background:var(--paper);border:1px solid var(--panel-border);border-radius:8px;padding:22px 24px;max-width:440px;width:100%;box-shadow:0 8px 30px rgba(0,0,0,0.28);}
+  .report-modal h3{margin:0 0 8px;font-size:16px;}
+  .report-note{font-size:12.5px;color:var(--steel);margin:0 0 16px;line-height:1.45;}
+  .report-label{display:block;font-size:12px;font-weight:600;margin:12px 0 4px;}
+  .report-optional{font-weight:400;color:var(--steel);}
+  .report-input, .report-textarea{width:100%;font-family:'IBM Plex Sans',sans-serif;font-size:13px;padding:8px 10px;border:1px solid var(--panel-border);border-radius:4px;background:#fff;color:var(--ink);box-sizing:border-box;}
+  .report-textarea{min-height:70px;resize:vertical;}
+  .report-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
+  #reportSend{background:var(--ink);color:var(--paper);}
+  #reportSend:hover{background:var(--steel);}
+  #reportSend:disabled{opacity:0.6;cursor:default;}
+  .report-status{font-size:12px;margin:10px 0 0;color:var(--blue);min-height:14px;}
+  .report-status.error{color:var(--force);}
+  .replay-banner{position:sticky;top:0;z-index:60;background:var(--blue);color:#fff;text-align:center;font-family:'IBM Plex Sans',sans-serif;font-weight:600;font-size:13px;padding:8px 14px;}
 </style>
 </head>
 <body>
@@ -141,6 +159,32 @@
   </div>
 
 </div>
+
+<button id="reportBtn" class="report-fab" type="button">Report an issue</button>
+<div id="reportModal" class="report-modal-overlay">
+  <div class="report-modal">
+    <h3>Report an issue</h3>
+    <p class="report-note">Spotted something wrong with this visualization? This report is anonymous unless you add your name below. It includes a diagnostic snapshot of the current problem, plus a link that reopens this exact scenario so it can be reproduced.</p>
+    <label class="report-label">Your name <span class="report-optional">(optional)</span></label>
+    <input type="text" id="reportName" class="report-input" placeholder="Leave blank to stay anonymous">
+    <label class="report-label">What looks wrong? <span class="report-optional">(optional)</span></label>
+    <textarea id="reportDesc" class="report-textarea" placeholder="Describe what you think is incorrect..."></textarea>
+    <div class="report-actions">
+      <button class="reset-btn" id="reportCancel" type="button">Cancel</button>
+      <button class="reset-btn" id="reportSend" type="button">Send report</button>
+    </div>
+    <p id="reportStatus" class="report-status"></p>
+  </div>
+</div>
+
+<iframe name="reportFrame" style="display:none" title="report submission"></iframe>
+<form id="reportForm" action="https://formspree.io/f/xkodgkjj" method="POST" target="reportFrame" style="display:none">
+  <input type="hidden" name="name" id="fReportName">
+  <input type="hidden" name="description" id="fReportDescription">
+  <input type="hidden" name="_subject" id="fReportSubject">
+  <input type="hidden" name="diagnostics" id="fReportDiagnostics">
+  <input type="hidden" name="reproduction_link" id="fReportRepro">
+</form>
 
 <script>
 /* ---------- Data model ----------
@@ -701,13 +745,136 @@ document.getElementById('newProblemBtn').addEventListener('click', ()=>{
 });
 
 /* ---------- Initialize ---------- */
-randomizeLoads();
-renderReactionsPanel();
-buildTopDiagram();
-computeRanges();
-renderShearDiagram();
-renderMomentDiagram();
-renderBottomSchematic();
+if(!tryReplayFromURL()){
+  randomizeLoads();
+  renderReactionsPanel();
+  buildTopDiagram();
+  computeRanges();
+  renderShearDiagram();
+  renderMomentDiagram();
+  renderBottomSchematic();
+}
+
+/* ---------- Report an issue ---------- */
+const REPORT_ENDPOINT = 'https://formspree.io/f/xkodgkjj';
+const reportModal = document.getElementById('reportModal');
+const reportStatusEl = document.getElementById('reportStatus');
+document.getElementById('reportForm').action = REPORT_ENDPOINT;
+
+function collectState(){
+  return {
+    loads: {P_A, P_C, P_E, M_E},
+    reactions: {R_B, R_D},
+    hasCut, lastCutXm,
+    plotV, plotM
+  };
+}
+
+/* Encodes the current state into the page's own URL so a report's
+   "reproduction link" reopens this exact scenario, replayed live in the
+   tool — more useful than a static picture, and avoids Formspree's
+   file-upload restriction entirely since it's just a query string. */
+function buildReproUrl(state){
+  const base = location.href.split('?')[0].split('#')[0];
+  return `${base}?state=${encodeURIComponent(JSON.stringify(state))}`;
+}
+
+function showReplayBanner(){
+  const b = document.createElement('div');
+  b.className = 'replay-banner';
+  b.textContent = 'Viewing a reconstructed report — not a live random problem.';
+  document.body.insertBefore(b, document.body.firstChild);
+}
+
+/* Returns true and replays the reported scenario if the page was opened
+   via a reproduction link (?state=...); returns false for a normal load. */
+function tryReplayFromURL(){
+  let urlState;
+  try{
+    const raw = new URLSearchParams(location.search).get('state');
+    if(!raw) return false;
+    urlState = JSON.parse(raw);
+  }catch(err){ return false; }
+  if(!urlState.loads) return false;
+
+  P_A = urlState.loads.P_A;
+  P_C = urlState.loads.P_C;
+  P_E = urlState.loads.P_E;
+  M_E = urlState.loads.M_E;
+  posM = { A:0, B:a_val, C:2*a_val, D:3*a_val, E:4*a_val };
+  SCALE = 720/(4*a_val);
+  computeReactions();
+  renderReactionsPanel();
+  buildTopDiagram();
+  computeRanges();
+  renderShearDiagram();
+  renderMomentDiagram();
+  renderBottomSchematic();
+  if(urlState.hasCut && Array.isArray(urlState.plotV)){
+    urlState.plotV.forEach(p=>{ if(typeof p.x === 'number') attemptCut(p.x); });
+  }
+  showReplayBanner();
+  return true;
+}
+
+function openReportModal(){
+  reportStatusEl.textContent = '';
+  reportStatusEl.className = 'report-status';
+  document.getElementById('reportName').value = '';
+  document.getElementById('reportDesc').value = '';
+  reportModal.classList.add('show');
+}
+function closeReportModal(){ reportModal.classList.remove('show'); }
+
+document.getElementById('reportBtn').addEventListener('click', openReportModal);
+document.getElementById('reportCancel').addEventListener('click', closeReportModal);
+reportModal.addEventListener('click', (e)=>{ if(e.target===reportModal) closeReportModal(); });
+
+document.getElementById('reportSend').addEventListener('click', async ()=>{
+  const sendBtn = document.getElementById('reportSend');
+  sendBtn.disabled = true;
+  reportStatusEl.className = 'report-status';
+  reportStatusEl.textContent = 'Sending…';
+
+  const name = document.getElementById('reportName').value.trim();
+  const description = document.getElementById('reportDesc').value.trim();
+
+  const stateSnapshot = collectState();
+  const diagnostics = {
+    page: document.title,
+    file: location.pathname.split('/').pop(),
+    time: new Date().toISOString(),
+    viewport: `${window.innerWidth}x${window.innerHeight}`,
+    state: stateSnapshot,
+    reproUrl: buildReproUrl(stateSnapshot)
+  };
+
+  /* Submitted as a real (hidden-iframe-targeted) form POST rather than
+     fetch(): Formspree's AJAX endpoint requires a verified page origin for
+     CORS, which a local file:// page never has. A plain form submission
+     isn't subject to CORS at all, so this works whether the file is opened
+     locally or hosted anywhere. */
+  document.getElementById('fReportName').value = name || 'Anonymous';
+  document.getElementById('fReportDescription').value = description || '(no description provided)';
+  document.getElementById('fReportSubject').value = `SERIES report — ${document.title}${name ? ' — from '+name : ' (anonymous)'}`;
+  document.getElementById('fReportDiagnostics').value = JSON.stringify(diagnostics, null, 2);
+  document.getElementById('fReportRepro').value = diagnostics.reproUrl;
+
+  const frame = document.querySelector('iframe[name="reportFrame"]');
+  let settled = false;
+  const finish = () => {
+    if(settled) return;
+    settled = true;
+    frame.removeEventListener('load', finish);
+    reportStatusEl.textContent = 'Report sent — thank you!';
+    sendBtn.disabled = false;
+    setTimeout(closeReportModal, 1600);
+  };
+  frame.addEventListener('load', finish);
+  setTimeout(finish, 4000); /* fallback in case the load event doesn't fire */
+
+  document.getElementById('reportForm').submit();
+});
 </script>
 </body>
 </html>
