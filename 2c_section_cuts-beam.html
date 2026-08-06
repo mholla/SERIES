@@ -650,9 +650,9 @@ function fillPanels(R, xm){
   ]);
 
   const vSpan = document.getElementById('agreeMathV');
-  katex.render(`\\text{Both approaches agree:}\\quad V(x) = ${R.V.toFixed(0)}\\ \\text{N}`, vSpan, mSpan, {throwOnError:false, displayMode:false});
+  katex.render(`\\text{Both approaches agree:}\\quad V(x) = ${R.V.toFixed(0)}\\ \\text{N}`, vSpan, {throwOnError:false, displayMode:false});
   const mSpan = document.getElementById('agreeMathM');
-  katex.render(`\\text{Both approaches agree:}\\quad M(x) = ${R.M.toFixed(0)}\\ \\text{N}\\cdot\\text{m}`,  {throwOnError:false, displayMode:false});
+  katex.render(`\\text{Both approaches agree:}\\quad M(x) = ${R.M.toFixed(0)}\\ \\text{N}\\cdot\\text{m}`, mSpan, {throwOnError:false, displayMode:false});
 }
 
 /* ---------- Shear / moment vs. position plots (data only — the beam
